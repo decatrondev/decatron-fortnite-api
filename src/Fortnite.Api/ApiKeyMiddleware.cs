@@ -1,39 +1,59 @@
+using Fortnite.Persistence;
+
 namespace Fortnite.Api;
 
 /// <summary>
-/// Exige el header X-Api-Key contra una lista configurada. Si la lista está vacía, deja pasar todo
-/// (modo desarrollo). No aplica a /health ni a /swagger.
+/// Exige el header X-Api-Key cuando Api:RequireApiKey es true. Acepta dos fuentes de clave:
+/// una lista de claves "admin" en config (bypass fijo, para uso interno) y las claves emitidas
+/// por /v1/keys, validadas contra la base. Si RequireApiKey es false (default), no exige nada:
+/// el free tier queda abierto hasta que se decida cerrarlo.
 /// </summary>
-public sealed class ApiKeyMiddleware(RequestDelegate next, IConfiguration config, ILogger<ApiKeyMiddleware> logger)
+public sealed class ApiKeyMiddleware(
+    RequestDelegate next,
+    IConfiguration config,
+    ILogger<ApiKeyMiddleware> logger,
+    ApiKeyStore store)
 {
     private const string HeaderName = "X-Api-Key";
 
-    private readonly HashSet<string> _keys = config.GetSection("Api:ApiKeys").Get<string[]>() is { Length: > 0 } k
+    private readonly HashSet<string> _adminKeys = config.GetSection("Api:ApiKeys").Get<string[]>() is { Length: > 0 } k
         ? new HashSet<string>(k, StringComparer.Ordinal)
         : [];
+
+    private readonly bool _requireKey = config.GetValue("Api:RequireApiKey", false);
 
     public async Task Invoke(HttpContext ctx)
     {
         var path = ctx.Request.Path.Value ?? "";
-        var isPublic = path.StartsWith("/health", StringComparison.OrdinalIgnoreCase) ||
-                       path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase) ||
-                       path.StartsWith("/sprites/", StringComparison.OrdinalIgnoreCase);
 
-        if (_keys.Count == 0 || isPublic)
+        var isPublic =
+            path.StartsWith("/health", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/sprites/", StringComparison.OrdinalIgnoreCase) ||
+            path.Equals("/v1/keys/me", StringComparison.OrdinalIgnoreCase) ||
+            (HttpMethods.IsPost(ctx.Request.Method) && path.Equals("/v1/keys", StringComparison.OrdinalIgnoreCase));
+
+        if (!_requireKey || isPublic)
         {
             await next(ctx);
             return;
         }
 
-        if (!ctx.Request.Headers.TryGetValue(HeaderName, out var provided) ||
-            !_keys.Contains(provided.ToString()))
+        if (ctx.Request.Headers.TryGetValue(HeaderName, out var provided))
         {
-            logger.LogWarning("Rechazado {Path}: API key inválida o ausente.", path);
-            ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            await ctx.Response.WriteAsJsonAsync(new { error = "API key inválida o ausente. Header: " + HeaderName });
-            return;
+            var key = provided.ToString();
+            if (_adminKeys.Contains(key) || await store.ValidateAsync(key) is not null)
+            {
+                await next(ctx);
+                return;
+            }
         }
 
-        await next(ctx);
+        logger.LogWarning("Rechazado {Path}: API key inválida o ausente.", path);
+        ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        await ctx.Response.WriteAsJsonAsync(new
+        {
+            error = "API key inválida o ausente. Header: " + HeaderName + ". Conseguí una en POST /v1/keys.",
+        });
     }
 }

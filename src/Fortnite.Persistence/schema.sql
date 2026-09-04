@@ -39,3 +39,25 @@ CREATE TABLE IF NOT EXISTS snapshot_sprite (
     image_hash     text,
     PRIMARY KEY (patch_version, id)
 );
+
+-- Cuentas y API keys para consumidores externos de la API.
+-- Por ahora un solo tier ("free"), sin límites diferenciados. Cuando existan planes
+-- pagos, se suma una tabla de consumo y se lee "tier" para aplicar límites por plan.
+CREATE TABLE IF NOT EXISTS account (
+    id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    email           text        NOT NULL UNIQUE,
+    created_at_utc  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS api_key (
+    id              uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    account_id      uuid        NOT NULL REFERENCES account (id) ON DELETE CASCADE,
+    key_hash        text        NOT NULL UNIQUE, -- SHA-256 hex; la clave en texto plano no se guarda
+    name            text,
+    tier            text        NOT NULL DEFAULT 'free',
+    created_at_utc  timestamptz NOT NULL DEFAULT now(),
+    last_used_utc   timestamptz,
+    revoked_at_utc  timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS ix_api_key_account ON api_key (account_id);
