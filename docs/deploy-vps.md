@@ -6,9 +6,10 @@ las imágenes las sirve Nginx directo.
 ## Layout en el servidor
 
 ```
-/opt/fortnite-api/            binarios publicados (dotnet publish)
-/var/lib/fortnite-api/data/   catalog.json, images.json, sprites/*.png   (lo que genera el ingest)
-/var/backups/fortnite-api/    backups
+/opt/fortnite-api/              binarios publicados (dotnet publish)
+/var/lib/fortnite-api/data/     catalog.json, images.json, sprites/*.png   (lo que genera el ingest)
+/var/www/fortnite-api-portal/   build estático del portal (portal/dist)
+/var/backups/fortnite-api/      backups
 ```
 
 ## 1. Requisitos
@@ -37,6 +38,14 @@ rsync -a --delete data/ tu-vps:/var/lib/fortnite-api/data/
 sudo chown -R fortnite:fortnite /var/lib/fortnite-api
 ```
 
+## 3b. Portal
+
+```bash
+cd portal
+npm run build
+rsync -a --delete dist/ tu-vps:/var/www/fortnite-api-portal/
+```
+
 ## 4. Servicio
 
 ```bash
@@ -52,7 +61,7 @@ curl -s http://127.0.0.1:5199/health
 ```bash
 sudo cp deploy/nginx.conf.example /etc/nginx/sites-available/fortnite-api
 sudo ln -s /etc/nginx/sites-available/fortnite-api /etc/nginx/sites-enabled/
-# ajustá server_name y el alias de /sprites/
+# ajustá server_name, el alias de /sprites/ y el root del portal
 sudo nginx -t && sudo systemctl reload nginx
 sudo certbot --nginx -d fortnite-api.decatron.net
 ```

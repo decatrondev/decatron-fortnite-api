@@ -499,3 +499,4 @@ aes.key
 # Mappings del juego (binario, se regenera por parche)
 /mappings/
 *.usmap
+/design-canvas/

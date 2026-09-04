@@ -29,7 +29,7 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 });
 
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
-    p.AllowAnyOrigin().AllowAnyHeader().WithMethods("GET")));
+    p.AllowAnyOrigin().AllowAnyHeader().WithMethods("GET", "POST")));
 
 var dataRoot = builder.Configuration["Api:DataRoot"] ?? "data";
 if (!Path.IsPathRooted(dataRoot))
