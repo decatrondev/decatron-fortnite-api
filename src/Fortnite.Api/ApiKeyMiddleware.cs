@@ -30,6 +30,9 @@ public sealed class ApiKeyMiddleware(
             path.StartsWith("/health", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase) ||
             path.StartsWith("/sprites/", StringComparison.OrdinalIgnoreCase) ||
+            // El catálogo de lectura queda público siempre: la landing lo muestra sin cuenta.
+            // La alta y la cuenta (POST /v1/keys, GET /v1/keys/me) sí se rigen por RequireApiKey.
+            path.StartsWith("/v1/sprites", StringComparison.OrdinalIgnoreCase) ||
             path.Equals("/v1/keys/me", StringComparison.OrdinalIgnoreCase) ||
             (HttpMethods.IsPost(ctx.Request.Method) && path.Equals("/v1/keys", StringComparison.OrdinalIgnoreCase));
 
