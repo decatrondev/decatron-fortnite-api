@@ -2,6 +2,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Fortnite.Core\Fortnite.Core.csproj" />
+    <ProjectReference Include="..\Fortnite.Persistence\Fortnite.Persistence.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapper" Version="2.1.79" />
+    <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
   </ItemGroup>
 
   <PropertyGroup>

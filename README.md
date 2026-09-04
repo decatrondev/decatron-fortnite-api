@@ -32,7 +32,7 @@ Flujo completo en [`docs/arquitectura.md`](docs/arquitectura.md).
 - [x] Fase 2 — Ingest (CUE4Parse): 186 sprites + PNG 128x128 del parche 42.10.
 - [x] Fase 3 — Processing (ImageSharp): 128x128 RGBA uniforme, hash de contenido, salida en data/.
 - [x] Fase 4 — Persistencia (PostgreSQL + Dapper): esquema, snapshot por parche, diff vs parche anterior (opt-in por connection string).
-- [ ] Fase 5 — API (endpoints + Swagger + API key).
+- [x] Fase 5 — API: /v1/sprites (+filtros), /v1/sprites/{id}, /v1/sprites/{id}.png (302 con ?v=hash), /v1/sprites-data.js, Swagger, middleware de API key. Origen File o Db.
 - [ ] Fase 6 — Reconcile (`unreleased` automático).
 - [ ] Fase 7 — Portal.
 - [ ] Fase 8 — Deploy en VPS.
