@@ -65,6 +65,25 @@ catch (Exception ex)
 
 Log($"Provider montado: {provider.Provider.Files.Count} archivos.");
 
+if (!string.IsNullOrWhiteSpace(options.DumpAsset))
+{
+    var dumpDir = Path.Combine(layout.PatchDirectory, "dump");
+    Directory.CreateDirectory(dumpDir);
+    try
+    {
+        var pkg = provider.Provider.LoadPackage(options.DumpAsset);
+        var outPath = Path.Combine(dumpDir, options.DumpAsset.Split('/', '\\')[^1] + ".json");
+        File.WriteAllText(outPath, Newtonsoft.Json.JsonConvert.SerializeObject(pkg.GetExports(), Newtonsoft.Json.Formatting.Indented));
+        Log($"Asset volcado -> {outPath}");
+        return 0;
+    }
+    catch (Exception ex)
+    {
+        Log($"ERROR al volcar {options.DumpAsset}: {ex.Message}");
+        return 3;
+    }
+}
+
 DiscoveryRunner.Run(provider, options, layout, Log);
 
 if (options.DiscoveryOnly)

@@ -495,3 +495,7 @@ appsettings.Local.json
 .env
 .env.*
 aes.key
+
+# Mappings del juego (binario, se regenera por parche)
+/mappings/
+*.usmap

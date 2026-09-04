@@ -48,6 +48,12 @@ public sealed record IngestOptions
     /// <summary>Si es true, sólo vuelca el índice de archivos y candidatos; no exporta texturas.</summary>
     public bool DiscoveryOnly { get; init; } = true;
 
+    /// <summary>
+    /// Si viene una ruta de objeto (ej. "SpriteLibrary_CH7S3/Content/SpriteDefinitions/AirSprite/ESD_AirSprite"),
+    /// el ingest sólo serializa ese asset a JSON y termina. Herramienta de diagnóstico de esquema.
+    /// </summary>
+    public string? DumpAsset { get; init; }
+
     public IReadOnlyList<string> Validate()
     {
         var errors = new List<string>();
