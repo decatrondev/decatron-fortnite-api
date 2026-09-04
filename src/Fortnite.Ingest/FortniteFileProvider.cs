@@ -34,6 +34,14 @@ public sealed class FortniteFileProvider : IDisposable
             Provider.SubmitKey(new FGuid(), new FAesKey(_options.AesKey));
         }
 
+        foreach (var dk in _options.DynamicKeys)
+        {
+            if (!string.IsNullOrWhiteSpace(dk.Guid) && !string.IsNullOrWhiteSpace(dk.Key))
+            {
+                Provider.SubmitKey(new FGuid(dk.Guid), new FAesKey(dk.Key));
+            }
+        }
+
         if (!string.IsNullOrWhiteSpace(_options.MappingsFile))
         {
             Provider.MappingsContainer = new FileUsmapTypeMappingsProvider(_options.MappingsFile!);

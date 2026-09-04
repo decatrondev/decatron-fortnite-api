@@ -12,6 +12,12 @@ public sealed record IngestOptions
     /// <summary>Clave AES principal del parche, en hex con prefijo 0x. Vacío = sólo archivos sin cifrar.</summary>
     public string AesKey { get; init; } = "";
 
+    /// <summary>
+    /// Claves AES dinámicas por pakchunk (GUID + clave). Opcional: cubren chunks concretos
+    /// que no usan la clave principal. Los sprites de coleccionables normalmente no las necesitan.
+    /// </summary>
+    public IReadOnlyList<DynamicAesKey> DynamicKeys { get; init; } = [];
+
     /// <summary>Número de parche que identifica esta corrida. Ej: "34.20".</summary>
     public string PatchVersion { get; init; } = "";
 
@@ -22,22 +28,21 @@ public sealed record IngestOptions
     public string StagingRoot { get; init; } = "staging";
 
     /// <summary>
-    /// Prefijos de ruta interna donde buscar assets de sprites de coleccionables.
-    /// Se ajustan cuando la fase de descubrimiento revele las rutas reales.
+    /// Carpetas de iconos de sprites de coleccionable, confirmadas en el parche 42.10.
+    /// Una por plugin de temporada (SpriteLibrary_*).
     /// </summary>
     public IReadOnlyList<string> SearchPaths { get; init; } =
     [
-        "FortniteGame/Content/Athena/Items/Cosmetics",
-        "FortniteGame/Content/UI/Foundation",
+        "FortniteGame/Plugins/GameFeatures/SpriteLibrary_CH7S3/Content/UI",
+        "FortniteGame/Plugins/GameFeatures/SpriteLibrary_Ch7S4/Content/UI",
     ];
 
     /// <summary>
     /// Subcadenas (case-insensitive) que marcan un package como candidato a sprite.
-    /// También provisorio hasta el descubrimiento.
     /// </summary>
     public IReadOnlyList<string> CandidateHints { get; init; } =
     [
-        "sticker", "card", "collectible", "sprite", "foil", "holo",
+        "T_Icon_BR_Creature_Sprite_",
     ];
 
     /// <summary>Si es true, sólo vuelca el índice de archivos y candidatos; no exporta texturas.</summary>
@@ -73,4 +78,14 @@ public sealed record IngestOptions
 
         return errors;
     }
+}
+
+/// <summary>Clave AES dinámica: identifica un pak por su GUID y aporta su clave.</summary>
+public sealed record DynamicAesKey
+{
+    /// <summary>GUID del pak en hex de 32 dígitos. Ej: "88FDEE76FF019E21306BBDC9E8E10A9D".</summary>
+    public string Guid { get; init; } = "";
+
+    /// <summary>Clave AES en hex; se acepta con o sin prefijo 0x.</summary>
+    public string Key { get; init; } = "";
 }
