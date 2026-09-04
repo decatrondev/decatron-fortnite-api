@@ -27,6 +27,31 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.AllowAnyOrigin().AllowAnyHeader().WithMethods("GET")));
 
 var dataRoot = builder.Configuration["Api:DataRoot"] ?? "data";
+if (!Path.IsPathRooted(dataRoot))
+{
+    // En prod DataRoot es absoluto. En dev es relativo ("data") y, según cómo se lance
+    // (dotnet run vs dotnet Api.dll), el cwd/content root varía. Subimos por el árbol
+    // desde el content root y desde el cwd buscando <carpeta>/data/catalog.json.
+    dataRoot = ResolveDataRoot(dataRoot, builder.Environment.ContentRootPath)
+               ?? ResolveDataRoot(dataRoot, Directory.GetCurrentDirectory())
+               ?? Path.GetFullPath(dataRoot);
+
+    static string? ResolveDataRoot(string rel, string startDir)
+    {
+        var dir = new DirectoryInfo(startDir);
+        for (var i = 0; i < 8 && dir is not null; i++, dir = dir.Parent)
+        {
+            var candidate = Path.Combine(dir.FullName, rel);
+            if (File.Exists(Path.Combine(candidate, "catalog.json")))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+}
+
 var sourceKind = builder.Configuration["Api:Source"] ?? "File";
 var connString = builder.Configuration["Database:ConnectionString"] ?? "";
 
@@ -41,6 +66,8 @@ else
 }
 
 var app = builder.Build();
+
+app.Logger.LogInformation("Origen: {Source} · DataRoot: {DataRoot}", sourceKind, dataRoot);
 
 app.UseSwagger();
 app.UseSwaggerUI();
