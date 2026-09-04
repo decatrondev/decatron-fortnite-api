@@ -1,55 +1,56 @@
-# Hallazgos del descubrimiento — parche 42.10
+# Hallazgos del ingest — parche 42.10
 
-Corrida: `dotnet run --project src/Fortnite.Ingest` con la clave AES pública de fortnite-api.com.
-Build real: `+Fortnite+Release-42.10-CL-57566230`.
+Build real: `+Fortnite+Release-42.10-CL-57566230`. Mappings: `.usmap` de FModel (variante `_zs`).
 
-- Archivos montados: **1 417 867**
-- Candidatos volcados: `staging/42.10/candidates.txt` (27 588, ruidoso)
+## Resultado de la Fase 2c
 
-## Dónde están los sprites de coleccionable
+- **186 sprites** en `staging/42.10/catalog.json` (formato spec, keys en minúscula).
+- **186 PNG** en `staging/42.10/textures/` a **128×128** (resolución nativa; el juego no trae más grande).
+- `staging/42.10/raw/*.json` — un `RawSprite` por sprite con notas de trazabilidad.
+- `staging/42.10/registry/*.json` — DataTables volcadas como referencia.
+- `staging/42.10/dump/*.json` — assets sueltos volcados con `--Ingest:DumpAsset`.
 
-Plugins GameFeature dedicados, uno por temporada:
+## Fuente de verdad: assets `ESD_*`
 
-| Plugin | Carpeta de iconos | Patrón de archivo |
-|---|---|---|
-| `SpriteLibrary_CH7S3` | `.../Content/UI/` | `T_Icon_BR_Creature_Sprite_<Personaje>_<Theme>_ui.uasset` |
-| `SpriteLibrary_Ch7S4` | `.../Content/UI/` | `T_Icon_BR_Creature_Sprite_<Personaje>[_<Theme>].uasset` |
+`Class = ExtractableItemDefinition`, en `SpriteLibrary_*/Content/SpriteDefinitions/<Arquetipo>/ESD_*.uasset`.
+Campos usados (algunos vienen aplanados de `DataList[]`):
 
-- Los `_L.uasset` son la versión de baja resolución. Se prefiere la que **no** termina en `_L`.
-- Texturas full-res de `Creature_Sprite`: ~154. Con `_L`: ~243 más.
-- Ojo: el patrón de nombre difiere entre S3 (theme en el medio + sufijo `_ui`) y S4 (theme como sufijo, sin `_ui`).
+| Campo del juego | → spec |
+|---|---|
+| `ItemName.SourceString` (se le quita el sufijo " Sprite") | `name` |
+| `Rarity` = `EFortRarity::X` | `rarity` = `X` |
+| `VariantRarityTag.TagName` = `Extraction.VariantRarity.<Token>` | `theme` (mapeado) |
+| `DataList[].Icon.AssetPathName` | textura a decodificar |
+| `DexNumber` | nº de colección (va en `raw`, no en la spec) |
+| carpeta del plugin | `season` (vía `IngestOptions.SeasonNames`) |
 
-## Personajes detectados
+- ESD base (sin `_Variant_`) → `theme = Basic` y aporta el `character` a sus variantes.
+- `ESD_*_Variant_A` → `VariantRarityTag = UseArchetype`: es un placeholder que reusa la base. **Se descarta** (40 casos).
 
-- **S3:** Boss, BurntPeanut, Drifter, Fishy, King, Llama, Peely, Punk, Seven, Sleepy, Soccer, ZeroPoint
-- **S4:** BushRanger, Crown, Dwarf, EightBitBlaster, ImprovedSlide, JazzJackrabbit, Jonesy, Killswitch, Klombo, Overshield, StormScout, WinnerB, WinnerC
+## Mapeo de themes
 
-`StormScout` (S4) = el ejemplo `stormking_gold` / "Gold Storm Scout" / season "Override" de la spec.
-→ **"Override" es el nombre comercial de Ch7 S4.** Falta confirmar el de S3.
+`Gold`, `Candy` (el juego lo llama *Gummy* en el `name`), `Galaxy`, `Gem`, `Holofoil`, `Cube`→`Rift/Cube`,
+`CheatMaster`→`Cheat`, `Quack`. Sin token → `Basic`.
+`Hacker` (de `LootHacker`, S4) no está en la spec → se deja con el token crudo, por decisión del proyecto.
 
-## Themes detectados (coinciden con la spec)
+## Temporadas
 
-S3: base (sin theme), `Gold`, `Galaxy`, `Candy`, `Quack`, `Holofoil`, `Gem`, `Cube`.
-La spec pide: Basic, Gold, Candy, Galaxy, Gem, Holofoil, Rift/Cube, Cheat, Quack.
-Mapeo: base→`Basic`, `Cube`→`Rift/Cube`, resto 1:1. `Cheat` aparece en S4 como `Cheatmaster`.
+| Plugin | `season` |
+|---|---|
+| `SpriteLibrary_CH7S3` | `Runners` (Ch7 S3) |
+| `SpriteLibrary_Ch7S4` | `Override` (Ch7 S4) |
 
-S4 (temporada nueva, aún incompleta): `Gold`, `Cheatmaster`, `Hacker` + base.
-Que falten themes en S4 es justamente el caso `unreleased: true`.
+## Distribución del catálogo 42.10
 
-## Metadata (rarity, unreleased, nombre visible, temporada)
+- themes: Basic 40, Gold 35, Candy 20, Galaxy 20, Cheat 15, Hacker 15, Holofoil 15, Gem 13, Rift/Cube 9, Quack 4
+- rarezas: Rare 62, Legendary 47, Epic 44, Mythic 33
+- seasons: Runners 124, Override 62
 
-No sale del nombre de archivo. Fuentes candidatas (DataTables del plugin S3):
+## Pendientes / notas
 
-- `SpriteLibrary_CH7S3/Content/DataTables/DT_SpriteAssetRegistry.uasset` ← registro maestro
-- `SpriteLibrary_CH7S3/Content/DataTables/DT_SpriteGenericAssets.uasset`
-- `DT_VariantWeights`, `DT_VariantLootWeightTables` ← pesos de drop por variante
-
-Leer DataTables de forma fiable pide un `.usmap` (mappings) del parche.
-
-## Próximo paso (Fase 2b)
-
-1. Enumerar `T_Icon_BR_Creature_Sprite_*` (sin `_L`) en las dos carpetas UI.
-2. Parsear `<Personaje>` y `<Theme>` según el patrón de cada plugin.
-3. Cargar cada `UTexture2D`, decodificar y exportar PNG a `staging/<patch>/textures/`.
-4. Metadata: leer `DT_SpriteAssetRegistry` (con `.usmap`) o, sin mappings, heurística por
-   nombre + tabla de overrides manual para rarity/unreleased/season.
+- **`rarity` "Special"** de la spec no existe en el juego (`EFortRarity` no la tiene). Nuestros valores
+  autoritativos son Rare/Epic/Legendary/Mythic. Si las otras fuentes usan "Special", hay que decidir un mapeo.
+- **`unreleased`** = `false` en todo el catálogo (todo lo que tiene ESD ya está liberado). El aporte como
+  tercera fuente es detectar en el diff entre parches cuando aparezca un icono sin ESD.
+- **`character`** en S3 usa el nombre interno del arquetipo (`Air`, `Water`, `Fire`, `Earth`, `Grim`…),
+  que es lo que dice `ItemName`. Si las otras fuentes usan otro nombre, va una tabla de alias.

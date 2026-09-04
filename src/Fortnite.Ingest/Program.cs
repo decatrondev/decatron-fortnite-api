@@ -92,23 +92,35 @@ if (options.DiscoveryOnly)
     return 0;
 }
 
-Log("--- Fase 2b: extracción de texturas ---");
-var rawSprites = SpriteTextureExtractor.Run(provider, options, layout, Log);
-
-foreach (var raw in rawSprites)
+Log("--- Fase 2c: lectura de definiciones ESD ---");
+var jsonOpts = new System.Text.Json.JsonSerializerOptions
 {
-    var id = Path.GetFileNameWithoutExtension(raw.TextureFile!);
-    var rawPath = Path.Combine(layout.RawDirectory, id + ".json");
-    File.WriteAllText(rawPath, System.Text.Json.JsonSerializer.Serialize(raw, new System.Text.Json.JsonSerializerOptions
-    {
-        WriteIndented = true,
-    }));
+    WriteIndented = true,
+    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+};
+var result = SpriteDefinitionReader.Run(provider, options, layout, Log);
+
+foreach (var raw in result.Raw)
+{
+    var id = Path.GetFileNameWithoutExtension(raw.TextureFile ?? Fortnite.Core.Models.SpriteId.From(raw.Character ?? "x", raw.Theme ?? "x"));
+    File.WriteAllText(Path.Combine(layout.RawDirectory, id + ".json"),
+        System.Text.Json.JsonSerializer.Serialize(raw, jsonOpts));
 }
 
-Log($"RawSprite volcados: {rawSprites.Count} -> {layout.RawDirectory}");
+var catalogPath = Path.Combine(layout.PatchDirectory, "catalog.json");
+File.WriteAllText(catalogPath, System.Text.Json.JsonSerializer.Serialize(result.Catalog, jsonOpts));
+Log($"Catálogo -> {catalogPath} ({result.Catalog.Count} sprites)");
 
-Log("--- Fase 2b: volcado de DataTables ---");
+if (result.Warnings.Count > 0)
+{
+    foreach (var w in result.Warnings)
+    {
+        logFile.WriteLine($"{DateTimeOffset.Now:o}  AVISO  {w}");
+    }
+}
+
+Log("--- volcado de DataTables (referencia) ---");
 SpriteRegistryReader.Dump(provider, layout, Log);
 
-Log("Listo. Revisá staging/<patch>/textures/, /raw/ y /registry/.");
+Log("Listo. Revisá staging/<patch>/catalog.json, /textures/, /raw/ y /registry/.");
 return 0;

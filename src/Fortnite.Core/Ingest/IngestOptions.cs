@@ -18,6 +18,16 @@ public sealed record IngestOptions
     /// </summary>
     public IReadOnlyList<DynamicAesKey> DynamicKeys { get; init; } = [];
 
+    /// <summary>
+    /// Nombre comercial de la temporada por plugin. La clave es el nombre del plugin GameFeature.
+    /// Editá acá si el juego suma una temporada nueva.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> SeasonNames { get; init; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["SpriteLibrary_CH7S3"] = "Runners",
+        ["SpriteLibrary_Ch7S4"] = "Override",
+    };
+
     /// <summary>Número de parche que identifica esta corrida. Ej: "34.20".</summary>
     public string PatchVersion { get; init; } = "";
 

@@ -29,7 +29,7 @@ Flujo completo en [`docs/arquitectura.md`](docs/arquitectura.md).
 ## Estado
 
 - [x] Fase 1 — Fundaciones: estructura, solución, modelo en `Fortnite.Core`, docs.
-- [ ] Fase 2 — Ingest (CUE4Parse).
+- [x] Fase 2 — Ingest (CUE4Parse): 186 sprites + PNG 128x128 del parche 42.10.
 - [ ] Fase 3 — Processing (ImageSharp).
 - [ ] Fase 4 — Persistencia (PostgreSQL + Dapper).
 - [ ] Fase 5 — API (endpoints + Swagger + API key).
