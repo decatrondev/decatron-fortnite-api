@@ -34,8 +34,14 @@ public sealed record IngestOptions
     /// <summary>Ruta a un archivo .usmap para tipar los assets. Muy recomendado. Opcional.</summary>
     public string? MappingsFile { get; init; }
 
-    /// <summary>Raíz donde se vuelca todo lo extraído. Por defecto ./staging.</summary>
+    /// <summary>Raíz donde se vuelca todo lo extraído sin procesar. Por defecto ./staging.</summary>
     public string StagingRoot { get; init; } = "staging";
+
+    /// <summary>
+    /// Raíz de la salida final ya procesada: catalog.json + sprites/&lt;id&gt;.png.
+    /// Es lo que sirve la API/Nginx. Por defecto ./data.
+    /// </summary>
+    public string DataRoot { get; init; } = "data";
 
     /// <summary>
     /// Carpetas de iconos de sprites de coleccionable, confirmadas en el parche 42.10.

@@ -109,7 +109,7 @@ foreach (var raw in result.Raw)
 
 var catalogPath = Path.Combine(layout.PatchDirectory, "catalog.json");
 File.WriteAllText(catalogPath, System.Text.Json.JsonSerializer.Serialize(result.Catalog, jsonOpts));
-Log($"Catálogo -> {catalogPath} ({result.Catalog.Count} sprites)");
+Log($"Catálogo (staging) -> {catalogPath} ({result.Catalog.Count} sprites)");
 
 if (result.Warnings.Count > 0)
 {
@@ -119,8 +119,24 @@ if (result.Warnings.Count > 0)
     }
 }
 
+Log("--- Fase 3: procesado de imágenes ---");
+var spritesOut = Path.Combine(options.DataRoot, "sprites");
+var processed = Fortnite.Processing.SpriteImageProcessor.Run(layout.TexturesDirectory, spritesOut, Log);
+
+// catalog.json final (idéntico al de la spec) + índice de imágenes con hash para el ?v=
+Directory.CreateDirectory(options.DataRoot);
+File.WriteAllText(Path.Combine(options.DataRoot, "catalog.json"),
+    System.Text.Json.JsonSerializer.Serialize(result.Catalog, jsonOpts));
+
+var imageIndex = processed.ToDictionary(
+    p => p.Id,
+    p => new { hash = p.Hash, width = p.Width, height = p.Height });
+File.WriteAllText(Path.Combine(options.DataRoot, "images.json"),
+    System.Text.Json.JsonSerializer.Serialize(imageIndex, jsonOpts));
+Log($"Salida final -> {options.DataRoot}/ (catalog.json, images.json, sprites/)");
+
 Log("--- volcado de DataTables (referencia) ---");
 SpriteRegistryReader.Dump(provider, layout, Log);
 
-Log("Listo. Revisá staging/<patch>/catalog.json, /textures/, /raw/ y /registry/.");
+Log($"Listo. Salida procesada en {options.DataRoot}/; crudo en staging/{options.PatchVersion}/.");
 return 0;

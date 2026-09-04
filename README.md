@@ -30,7 +30,7 @@ Flujo completo en [`docs/arquitectura.md`](docs/arquitectura.md).
 
 - [x] Fase 1 — Fundaciones: estructura, solución, modelo en `Fortnite.Core`, docs.
 - [x] Fase 2 — Ingest (CUE4Parse): 186 sprites + PNG 128x128 del parche 42.10.
-- [ ] Fase 3 — Processing (ImageSharp).
+- [x] Fase 3 — Processing (ImageSharp): 128x128 RGBA uniforme, hash de contenido, salida en data/.
 - [ ] Fase 4 — Persistencia (PostgreSQL + Dapper).
 - [ ] Fase 5 — API (endpoints + Swagger + API key).
 - [ ] Fase 6 — Reconcile (`unreleased` automático).
