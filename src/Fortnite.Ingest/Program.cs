@@ -135,6 +135,62 @@ File.WriteAllText(Path.Combine(options.DataRoot, "images.json"),
     System.Text.Json.JsonSerializer.Serialize(imageIndex, jsonOpts));
 Log($"Salida final -> {options.DataRoot}/ (catalog.json, images.json, sprites/)");
 
+var dbOptions = config.GetSection("Database").Get<Fortnite.Persistence.DatabaseOptions>()
+                ?? new Fortnite.Persistence.DatabaseOptions();
+if (dbOptions.Enabled)
+{
+    Log("--- Fase 4: persistencia (PostgreSQL) ---");
+    try
+    {
+        var db = new Fortnite.Persistence.SpriteDatabase(dbOptions.ConnectionString);
+        await db.EnsureSchemaAsync();
+
+        var rows = result.Catalog.Select(s =>
+        {
+            imageIndex.TryGetValue(s.Id, out var info);
+            return (s, new Fortnite.Persistence.SpriteDatabase.ImageInfo(info?.hash, info?.width, info?.height));
+        }).ToList();
+
+        await db.WriteSnapshotAsync(options.PatchVersion, DateTimeOffset.UtcNow, rows);
+        Log($"Snapshot {options.PatchVersion} escrito: {rows.Count} sprites.");
+
+        var diff = await db.DiffAgainstPreviousAsync(options.PatchVersion);
+        if (diff is null)
+        {
+            Log("Sin parche anterior para comparar.");
+        }
+        else if (diff.IsEmpty)
+        {
+            Log("Diff: sin cambios respecto al parche anterior.");
+        }
+        else
+        {
+            Log($"Diff: nuevos +{diff.Added.Count}, quitados -{diff.Removed.Count}, " +
+                $"liberados {diff.NowReleased.Count}, pasan a unreleased {diff.NowUnreleased.Count}, " +
+                $"imagen cambiada {diff.ImageChanged.Count}, metadata {diff.MetadataChanged.Count}");
+            foreach (var w in new[]
+                     {
+                         ("nuevo", diff.Added), ("quitado", diff.Removed),
+                         ("liberado", diff.NowReleased), ("ahora-unreleased", diff.NowUnreleased),
+                     })
+            {
+                foreach (var id in w.Item2)
+                {
+                    logFile.WriteLine($"{DateTimeOffset.Now:o}  DIFF {w.Item1}  {id}");
+                }
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        Log($"ERROR de base: {ex.Message}");
+    }
+}
+else
+{
+    Log("Base no configurada (Database:ConnectionString vacío). Salida sólo en data/.");
+}
+
 Log("--- volcado de DataTables (referencia) ---");
 SpriteRegistryReader.Dump(provider, layout, Log);
 

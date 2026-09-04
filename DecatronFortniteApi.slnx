@@ -3,6 +3,7 @@
     <Project Path="src/Fortnite.Api/Fortnite.Api.csproj" />
     <Project Path="src/Fortnite.Core/Fortnite.Core.csproj" />
     <Project Path="src/Fortnite.Ingest/Fortnite.Ingest.csproj" />
+    <Project Path="src/Fortnite.Persistence/Fortnite.Persistence.csproj" />
     <Project Path="src/Fortnite.Processing/Fortnite.Processing.csproj" />
   </Folder>
 </Solution>

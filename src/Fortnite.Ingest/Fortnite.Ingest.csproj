@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Fortnite.Core\Fortnite.Core.csproj" />
     <ProjectReference Include="..\Fortnite.Processing\Fortnite.Processing.csproj" />
+    <ProjectReference Include="..\Fortnite.Persistence\Fortnite.Persistence.csproj" />
   </ItemGroup>
 
   <ItemGroup>
