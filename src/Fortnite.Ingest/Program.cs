@@ -1,9 +1,75 @@
-// Fortnite.Ingest — esqueleto (Fase 1).
-// En la Fase 2 este CLI:
-//   1. recibe la ruta a los .pak de Fortnite, la clave AES y la versión del parche,
-//   2. monta el sistema de archivos virtual con CUE4Parse,
-//   3. localiza los assets de coleccionables y exporta textura + metadata cruda a staging/.
+// Fortnite.Ingest — Fase 2.
+// Monta los .pak de una instalación local de Fortnite y vuelca el índice de archivos
+// + una lista de candidatos a sprite. La extracción de texturas llega en la Fase 2b,
+// cuando candidates.txt confirme las rutas internas reales.
+//
+// Configuración (por prioridad): argumentos > env INGEST_* > appsettings.Local.json > appsettings.json
+// Ejemplo:
+//   dotnet run --project src/Fortnite.Ingest -- \
+//     --Ingest:PaksDirectory "C:\...\Fortnite\FortniteGame\Content\Paks" \
+//     --Ingest:AesKey 0x<64hex> --Ingest:PatchVersion 34.20
 
-using Fortnite.Core.Models;
+using Fortnite.Core.Ingest;
+using Fortnite.Ingest;
+using Microsoft.Extensions.Configuration;
 
-Console.WriteLine($"Fortnite.Ingest — Fase 1 (esqueleto). Themes conocidos: {string.Join(", ", SpriteThemes.All)}");
+var config = new ConfigurationBuilder()
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: true)
+    .AddJsonFile("appsettings.Local.json", optional: true)
+    .AddEnvironmentVariables("INGEST_")
+    .AddCommandLine(args)
+    .Build();
+
+var options = config.GetSection("Ingest").Get<IngestOptions>() ?? new IngestOptions();
+
+var errors = options.Validate();
+if (errors.Count > 0)
+{
+    Console.Error.WriteLine("Configuración inválida:");
+    foreach (var e in errors)
+    {
+        Console.Error.WriteLine($"  - {e}");
+    }
+
+    return 1;
+}
+
+var layout = new StagingLayout(options.StagingRoot, options.PatchVersion);
+layout.EnsureCreated();
+
+await using var logFile = new StreamWriter(layout.LogPath, append: true) { AutoFlush = true };
+void Log(string message)
+{
+    Console.WriteLine(message);
+    logFile.WriteLine($"{DateTimeOffset.Now:o}  {message}");
+}
+
+Log($"Ingest parche {options.PatchVersion}");
+Log($"Paks: {options.PaksDirectory}");
+Log($"Mappings: {options.MappingsFile ?? "(ninguno)"}");
+
+using var provider = new FortniteFileProvider(options);
+try
+{
+    provider.Initialize();
+}
+catch (Exception ex)
+{
+    Log($"ERROR al montar los paks: {ex.Message}");
+    Log("Revisá que la clave AES corresponda al parche instalado.");
+    return 2;
+}
+
+Log($"Provider montado: {provider.Provider.Files.Count} archivos.");
+
+DiscoveryRunner.Run(provider, options, layout, Log);
+
+if (options.DiscoveryOnly)
+{
+    Log("DiscoveryOnly = true. Revisá candidates.txt, ajustá Ingest:SearchPaths y desactivá DiscoveryOnly para extraer.");
+    return 0;
+}
+
+Log("Extracción de texturas: pendiente (Fase 2b).");
+return 0;
