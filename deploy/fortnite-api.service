@@ -1,0 +1,34 @@
+# /etc/systemd/system/fortnite-api.service
+# systemctl daemon-reload && systemctl enable --now fortnite-api
+
+[Unit]
+Description=Decatron Fortnite API
+After=network.target postgresql.service
+
+[Service]
+# simple: sin dependencia extra. Para Type=notify hay que añadir el paquete
+# Microsoft.Extensions.Hosting.Systemd y llamar a builder.Host.UseSystemd().
+Type=simple
+WorkingDirectory=/opt/fortnite-api
+ExecStart=/usr/bin/dotnet /opt/fortnite-api/Fortnite.Api.dll
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGINT
+SyslogIdentifier=fortnite-api
+User=fortnite
+Group=fortnite
+
+Environment=DOTNET_CLI_TELEMETRY_OPTOUT=1
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5199
+
+# El catálogo y las imágenes viven fuera del directorio de binarios:
+Environment=Api__DataRoot=/var/lib/fortnite-api/data
+# Origen de datos: File (lee data/) o Db (PostgreSQL). Con Db, seteá la cadena:
+Environment=Api__Source=File
+# Environment=Database__ConnectionString=Host=127.0.0.1;Database=fortnite_api;Username=fortnite;Password=...
+# API keys separadas por el índice (o pasá un appsettings.Production.json):
+# Environment=Api__ApiKeys__0=clave-para-el-bot-de-twitch
+
+[Install]
+WantedBy=multi-user.target

@@ -35,7 +35,7 @@ Flujo completo en [`docs/arquitectura.md`](docs/arquitectura.md).
 - [x] Fase 5 — API: /v1/sprites (+filtros), /v1/sprites/{id}, /v1/sprites/{id}.png (302 con ?v=hash), /v1/sprites-data.js, Swagger, middleware de API key. Origen File o Db.
 - [ ] Fase 6 — Reconcile (`unreleased` automático).
 - [ ] Fase 7 — Portal.
-- [ ] Fase 8 — Deploy en VPS.
+- [x] Fase 8 — Deploy: nginx.conf, unit systemd, backup.sh, guia deploy-vps.md y runbook-parche.md.
 
 ## Requisitos de desarrollo
 

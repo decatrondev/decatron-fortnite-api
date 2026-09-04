@@ -1,0 +1,47 @@
+# /etc/nginx/sites-available/fortnite-api  (ajustá el server_name y las rutas)
+# Symlink a sites-enabled y `nginx -t && systemctl reload nginx`.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name fortnite-api.decatron.net;
+
+    # Certbot completa el bloque 443 y el redirect. Para el primer arranque, esto alcanza.
+    location / {
+        return 301 https://$host$request_uri;
+    }
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name fortnite-api.decatron.net;
+
+    ssl_certificate     /etc/letsencrypt/live/fortnite-api.decatron.net/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/fortnite-api.decatron.net/privkey.pem;
+
+    # --- Imágenes: las sirve Nginx directo desde disco, nunca pasan por la API ---
+    location /sprites/ {
+        alias /var/lib/fortnite-api/data/sprites/;
+        access_log off;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # --- API (.NET en localhost:5199) ---
+    location / {
+        proxy_pass         http://127.0.0.1:5199;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+
+    client_max_body_size 1m;
+}
