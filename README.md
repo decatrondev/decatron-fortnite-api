@@ -34,7 +34,7 @@ Flujo completo en [`docs/arquitectura.md`](docs/arquitectura.md).
 - [x] Fase 4 — Persistencia (PostgreSQL + Dapper): esquema, snapshot por parche, diff vs parche anterior (opt-in por connection string).
 - [x] Fase 5 — API: /v1/sprites (+filtros), /v1/sprites/{id}, /v1/sprites/{id}.png (302 con ?v=hash), /v1/sprites-data.js, Swagger, middleware de API key. Origen File o Db.
 - [ ] Fase 6 — Reconcile (`unreleased` automático).
-- [ ] Fase 7 — Portal.
+- [x] Fase 7 — Portal: React + Vite + Tailwind, explorador de sprites en vivo + referencia de endpoints (portal/).
 - [x] Fase 8 — Deploy: nginx.conf, unit systemd, backup.sh, guia deploy-vps.md y runbook-parche.md.
 
 ## Requisitos de desarrollo
