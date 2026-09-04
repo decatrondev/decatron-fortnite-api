@@ -73,5 +73,23 @@ if (options.DiscoveryOnly)
     return 0;
 }
 
-Log("Extracción de texturas: pendiente (Fase 2b).");
+Log("--- Fase 2b: extracción de texturas ---");
+var rawSprites = SpriteTextureExtractor.Run(provider, options, layout, Log);
+
+foreach (var raw in rawSprites)
+{
+    var id = Path.GetFileNameWithoutExtension(raw.TextureFile!);
+    var rawPath = Path.Combine(layout.RawDirectory, id + ".json");
+    File.WriteAllText(rawPath, System.Text.Json.JsonSerializer.Serialize(raw, new System.Text.Json.JsonSerializerOptions
+    {
+        WriteIndented = true,
+    }));
+}
+
+Log($"RawSprite volcados: {rawSprites.Count} -> {layout.RawDirectory}");
+
+Log("--- Fase 2b: volcado de DataTables ---");
+SpriteRegistryReader.Dump(provider, layout, Log);
+
+Log("Listo. Revisá staging/<patch>/textures/, /raw/ y /registry/.");
 return 0;
