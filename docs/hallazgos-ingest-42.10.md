@@ -50,7 +50,8 @@ Campos usados (algunos vienen aplanados de `DataList[]`):
 
 - **`rarity` "Special"** de la spec no existe en el juego (`EFortRarity` no la tiene). Nuestros valores
   autoritativos son Rare/Epic/Legendary/Mythic. Si las otras fuentes usan "Special", hay que decidir un mapeo.
-- **`unreleased`** = `false` en todo el catálogo (todo lo que tiene ESD ya está liberado). El aporte como
-  tercera fuente es detectar en el diff entre parches cuando aparezca un icono sin ESD.
+- **`unreleased`** se calcula de verdad (ver `docs/arquitectura.md` → Reconcile): `Basic` siempre
+  liberado; el resto sale de la tabla `DT_VariantWeights[_<Season>]` — peso 0 o fila ausente = `true`.
+  En 42.10 da 109 liberados / 77 unreleased (Runners 81/43, Override 28/34).
 - **`character`** en S3 usa el nombre interno del arquetipo (`Air`, `Water`, `Fire`, `Earth`, `Grim`…),
   que es lo que dice `ItemName`. Si las otras fuentes usan otro nombre, va una tabla de alias.

@@ -31,6 +31,8 @@ public static class SpriteDefinitionReader
 
         log($"Definiciones ESD encontradas: {esdFiles.Length}");
 
+        var weightsByPlugin = LoadVariantWeightTables(provider, log);
+
         // Primera pasada: leer props crudas de cada ESD.
         var parsed = new List<EsdRecord>();
         foreach (var (path, file) in esdFiles.Select(kv => (kv.Key, kv.Value)))
@@ -129,13 +131,19 @@ public static class SpriteDefinitionReader
                 warnings.Add($"{id}: rareza fuera de la spec: '{rarityValue}'");
             }
 
+            var (unreleased, weightNote) = ResolveUnreleased(rec, theme, weightsByPlugin);
+            if (weightNote is not null)
+            {
+                warnings.Add($"{id}: {weightNote}");
+            }
+
             catalog.Add(new Sprite
             {
                 Id = id,
                 Name = name,
                 Theme = theme,
                 Rarity = rarityValue,
-                Unreleased = false,
+                Unreleased = unreleased,
                 Season = season,
                 Character = character,
             });
@@ -148,7 +156,7 @@ public static class SpriteDefinitionReader
                 Theme = theme,
                 Rarity = rarityValue,
                 Season = season,
-                UnreleasedHint = false,
+                UnreleasedHint = unreleased,
                 Notes = $"ESD={rec.EsdName}; dex={rec.DexNumber?.ToString() ?? "-"}; variantToken={rec.VariantToken ?? "-"}",
             });
         }
@@ -178,6 +186,106 @@ public static class SpriteDefinitionReader
         public string? VariantToken { get; init; }
         public string? IconPath { get; init; }
         public int? DexNumber { get; init; }
+    }
+
+    /// <summary>
+    /// Lee todas las DataTables "DT_VariantWeights*" (una por temporada: DT_VariantWeights,
+    /// DT_VariantWeights_Ch7S4, ...) y arma, por plugin, un diccionario clave-normalizada -> peso.
+    /// Un peso 0 (o ausencia de fila) significa que esa variante no está en el pool de drop
+    /// todavía: es la señal real de "unreleased" que usa el propio juego.
+    /// </summary>
+    private static Dictionary<string, Dictionary<string, float>> LoadVariantWeightTables(
+        CUE4Parse.FileProvider.AbstractFileProvider provider, Action<string> log)
+    {
+        var result = new Dictionary<string, Dictionary<string, float>>(StringComparer.OrdinalIgnoreCase);
+
+        var tables = provider.Files
+            .Where(kv => kv.Key.EndsWith(".uasset", StringComparison.OrdinalIgnoreCase))
+            .Where(kv => Path.GetFileNameWithoutExtension(kv.Key)
+                .StartsWith("DT_VariantWeights", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        foreach (var (path, file) in tables.Select(kv => (kv.Key, kv.Value)))
+        {
+            try
+            {
+                var exports = provider.LoadPackage(file).GetExports();
+                var arr = JArray.Parse(JsonConvert.SerializeObject(exports));
+                var root = arr.OfType<JObject>().FirstOrDefault();
+                if (root?["Rows"] is not JObject rows)
+                {
+                    continue;
+                }
+
+                var plugin = PluginOf(path);
+                if (!result.TryGetValue(plugin, out var table))
+                {
+                    table = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+                    result[plugin] = table;
+                }
+
+                foreach (var prop in rows.Properties())
+                {
+                    var weight = (float?)prop.Value?["Weight"] ?? 0f;
+                    table[NormalizeVariantKey(prop.Name)] = weight;
+                }
+
+                log($"Tabla de pesos {Path.GetFileName(path)}: {rows.Count} filas ({plugin})");
+            }
+            catch (Exception ex)
+            {
+                log($"  aviso: no se pudo leer tabla de pesos {Path.GetFileName(path)}: {ex.Message}");
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// "ESD_StormScoutSprite_Variant_Gold" y "StormScoutSprite_Variant_Gold" (así lo nombra la
+    /// tabla de pesos, sin "ESD_") deben mapear a la misma clave. El juego además es inconsistente:
+    /// a veces el arquetipo lleva el sufijo "Sprite" en un asset y no en otro. Se normaliza sacando
+    /// ambos prefijo/sufijo y "_Variant_"/"_Variation_" antes de comparar.
+    /// </summary>
+    private static string NormalizeVariantKey(string raw)
+    {
+        var s = raw;
+        if (s.StartsWith("ESD_", StringComparison.OrdinalIgnoreCase))
+        {
+            s = s[4..];
+        }
+
+        s = s.Replace("Sprite", "", StringComparison.OrdinalIgnoreCase);
+        s = s.Replace("_Variant_", "_", StringComparison.OrdinalIgnoreCase);
+        s = s.Replace("_Variation_", "_", StringComparison.OrdinalIgnoreCase);
+        return s.ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Basic siempre se considera liberado (se obtiene por gameplay normal, no por el pool de
+    /// variantes). Para el resto, se busca el peso de drop de la temporada: 0 o ausente = unreleased.
+    /// </summary>
+    private static (bool Unreleased, string? Note) ResolveUnreleased(
+        EsdRecord rec, string theme, IReadOnlyDictionary<string, Dictionary<string, float>> weightsByPlugin)
+    {
+        if (theme == SpriteThemes.Basic)
+        {
+            return (false, null);
+        }
+
+        var key = NormalizeVariantKey(rec.EsdName);
+
+        if (!weightsByPlugin.TryGetValue(rec.Plugin, out var table))
+        {
+            return (true, $"sin tabla de pesos para el plugin '{rec.Plugin}' -> unreleased por defecto");
+        }
+
+        if (!table.TryGetValue(key, out var weight))
+        {
+            return (true, $"sin fila de peso ('{key}') en la tabla de {rec.Plugin} -> unreleased");
+        }
+
+        return (weight <= 0f, null);
     }
 
     private static string PluginOf(string path)
