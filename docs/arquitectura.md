@@ -56,9 +56,17 @@ Fortnite (.pak/.utoc/.ucas)
 - Opcional: endpoint/artefacto `sprites-data.js` como copia drop-in para los consumidores que hoy usan ese formato.
 - Nunca sirve imágenes: solo devuelve la URL `/sprites/<id>.png`.
 
-### reconcile (job, Fase 6)
-- Compara el catálogo de archivos contra qué está realmente disponible en el juego y
-  actualiza el flag `unreleased`. Se dispara con un timer de systemd.
+### unreleased (dentro de Fortnite.Ingest / SpriteDefinitionReader)
+- `Basic` siempre `false` (se obtiene por gameplay normal, no por un pool de variantes).
+- El resto se resuelve contra `DT_VariantWeights[_<Season>]`, la tabla de pesos de drop del propio
+  juego: peso `0` o fila ausente para esa variante → `unreleased = true`. Es la misma señal que usan
+  sitios como fortnite.gg. Se recalcula en cada ingest, no hace falta un job aparte.
+
+### reconcile entre parches (job, Fase 6 — pendiente)
+- El diff que ya corre en cada ingest (`SpriteDatabase.DiffAgainstPreviousAsync`) detecta cuándo un
+  sprite pasa de `unreleased: true` a `false` (o viceversa) entre un parche y el siguiente.
+  Falta automatizarlo con un timer de systemd + una notificación (Discord/Twitch) en vez de que
+  quede solo en el log.
 
 ### portal/ (estático)
 - React + Vite + Tailwind. Landing, documentación, gestión de llaves, dashboard de consumo.
