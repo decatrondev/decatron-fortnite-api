@@ -32,6 +32,7 @@ public static class SpriteDefinitionReader
         log($"Definiciones ESD encontradas: {esdFiles.Length}");
 
         var weightsByPlugin = LoadVariantWeightTables(provider, log);
+        var overrides = LoadOverrides(options.OverridesFile, log);
 
         // Primera pasada: leer props crudas de cada ESD.
         var parsed = new List<EsdRecord>();
@@ -135,6 +136,13 @@ public static class SpriteDefinitionReader
             if (weightNote is not null)
             {
                 warnings.Add($"{id}: {weightNote}");
+            }
+
+            if (overrides.TryGetValue(id, out var ov) && ov.Unreleased != unreleased)
+            {
+                warnings.Add($"{id}: override manual unreleased {unreleased} -> {ov.Unreleased}" +
+                             (string.IsNullOrWhiteSpace(ov.Note) ? "" : $" ({ov.Note})"));
+                unreleased = ov.Unreleased;
             }
 
             catalog.Add(new Sprite
@@ -263,12 +271,15 @@ public static class SpriteDefinitionReader
 
     /// <summary>
     /// Basic siempre se considera liberado (se obtiene por gameplay normal, no por el pool de
-    /// variantes). Para el resto, se busca el peso de drop de la temporada: 0 o ausente = unreleased.
+    /// variantes). Cheat (Cheat Master) tampoco depende del pool de loot al azar: se gana
+    /// completando el mecanismo de Cheat Codes de la temporada, por eso su peso da 0 siempre
+    /// aunque esté disponible — si el ESD existe, se considera liberado. Para el resto, se usa
+    /// el peso de drop de la temporada: 0 o ausente = unreleased.
     /// </summary>
     private static (bool Unreleased, string? Note) ResolveUnreleased(
         EsdRecord rec, string theme, IReadOnlyDictionary<string, Dictionary<string, float>> weightsByPlugin)
     {
-        if (theme == SpriteThemes.Basic)
+        if (theme is SpriteThemes.Basic or SpriteThemes.Cheat)
         {
             return (false, null);
         }
@@ -287,6 +298,41 @@ public static class SpriteDefinitionReader
 
         return (weight <= 0f, null);
     }
+
+    /// <summary>
+    /// Overrides manuales de `unreleased`, uno por sprite `id`. Es un archivo del repo, curado a
+    /// mano cuando alguien confirma jugando algo que la heurística automática no puede saber
+    /// (ej. una variante "Loot Hacker" concreta que ya se activó). Sin archivo, no hace nada.
+    /// </summary>
+    private static IReadOnlyDictionary<string, OverrideEntry> LoadOverrides(string path, Action<string> log)
+    {
+        if (!File.Exists(path))
+        {
+            return new Dictionary<string, OverrideEntry>();
+        }
+
+        try
+        {
+            var json = File.ReadAllText(path);
+            var parsed = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, OverrideEntry>>(
+                json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            var result = parsed ?? new Dictionary<string, OverrideEntry>();
+            if (result.Count > 0)
+            {
+                log($"Overrides manuales: {result.Count} desde {path}");
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            log($"  aviso: no se pudo leer overrides ({path}): {ex.Message}");
+            return new Dictionary<string, OverrideEntry>();
+        }
+    }
+
+    private sealed record OverrideEntry(bool Unreleased, string? Note);
 
     private static string PluginOf(string path)
     {
