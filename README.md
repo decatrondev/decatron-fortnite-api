@@ -49,3 +49,12 @@ Flujo completo en [`docs/arquitectura.md`](docs/arquitectura.md).
 ```
 dotnet build
 ```
+
+## Licencia y assets
+
+El código de este repo está bajo licencia [MIT](LICENSE).
+
+Los **assets del juego** (sprites, iconos, cualquier PNG extraído de Fortnite) son © Epic Games
+y **no se distribuyen en este repo**: `data/`, `staging/` y `mappings/` están en `.gitignore`.
+Este proyecto sólo publica el código que los genera y los sirve; el catálogo vivo lo expone la
+API desplegada, no este repositorio.
