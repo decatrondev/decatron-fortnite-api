@@ -75,3 +75,61 @@ export async function fetchKeyInfo(base: string, apiKey: string): Promise<KeyInf
   }
   return (await res.json()) as KeyInfo;
 }
+
+// --- Admin -----------------------------------------------------------------
+
+export type AdminSprite = {
+  id: string;
+  name: string;
+  theme: string;
+  rarity: string;
+  season: string;
+  character?: string;
+  unreleased: boolean;
+  computedUnreleased?: boolean;
+  overridden: boolean;
+  note?: string;
+};
+
+const ADMIN_KEY_STORAGE = "fnapi.adminKey";
+
+export function getStoredAdminKey(): string | null {
+  return sessionStorage.getItem(ADMIN_KEY_STORAGE);
+}
+
+export function setStoredAdminKey(key: string | null) {
+  if (key) sessionStorage.setItem(ADMIN_KEY_STORAGE, key);
+  else sessionStorage.removeItem(ADMIN_KEY_STORAGE);
+}
+
+export async function fetchAdminSprites(base: string, adminKey: string): Promise<AdminSprite[]> {
+  const res = await fetch(`${base}/v1/admin/sprites`, { headers: { "X-Admin-Key": adminKey } });
+  if (res.status === 401) throw new Error("unauthorized");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()) as AdminSprite[];
+}
+
+export async function setAdminOverride(
+  base: string,
+  adminKey: string,
+  id: string,
+  unreleased: boolean,
+  note?: string,
+): Promise<void> {
+  const res = await fetch(`${base}/v1/admin/sprites/${id}`, {
+    method: "PUT",
+    headers: { "X-Admin-Key": adminKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ unreleased, note: note || undefined }),
+  });
+  if (res.status === 401) throw new Error("unauthorized");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
+export async function clearAdminOverride(base: string, adminKey: string, id: string): Promise<void> {
+  const res = await fetch(`${base}/v1/admin/sprites/${id}/override`, {
+    method: "DELETE",
+    headers: { "X-Admin-Key": adminKey },
+  });
+  if (res.status === 401) throw new Error("unauthorized");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}

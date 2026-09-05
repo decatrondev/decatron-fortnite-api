@@ -32,7 +32,6 @@ public static class SpriteDefinitionReader
         log($"Definiciones ESD encontradas: {esdFiles.Length}");
 
         var weightsByPlugin = LoadVariantWeightTables(provider, log);
-        var overrides = LoadOverrides(options.OverridesFile, log);
 
         // Primera pasada: leer props crudas de cada ESD.
         var parsed = new List<EsdRecord>();
@@ -138,12 +137,6 @@ public static class SpriteDefinitionReader
                 warnings.Add($"{id}: {weightNote}");
             }
 
-            if (overrides.TryGetValue(id, out var ov) && ov.Unreleased != unreleased)
-            {
-                warnings.Add($"{id}: override manual unreleased {unreleased} -> {ov.Unreleased}" +
-                             (string.IsNullOrWhiteSpace(ov.Note) ? "" : $" ({ov.Note})"));
-                unreleased = ov.Unreleased;
-            }
 
             catalog.Add(new Sprite
             {
@@ -298,41 +291,6 @@ public static class SpriteDefinitionReader
 
         return (weight <= 0f, null);
     }
-
-    /// <summary>
-    /// Overrides manuales de `unreleased`, uno por sprite `id`. Es un archivo del repo, curado a
-    /// mano cuando alguien confirma jugando algo que la heurística automática no puede saber
-    /// (ej. una variante "Loot Hacker" concreta que ya se activó). Sin archivo, no hace nada.
-    /// </summary>
-    private static IReadOnlyDictionary<string, OverrideEntry> LoadOverrides(string path, Action<string> log)
-    {
-        if (!File.Exists(path))
-        {
-            return new Dictionary<string, OverrideEntry>();
-        }
-
-        try
-        {
-            var json = File.ReadAllText(path);
-            var parsed = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, OverrideEntry>>(
-                json, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-            var result = parsed ?? new Dictionary<string, OverrideEntry>();
-            if (result.Count > 0)
-            {
-                log($"Overrides manuales: {result.Count} desde {path}");
-            }
-
-            return result;
-        }
-        catch (Exception ex)
-        {
-            log($"  aviso: no se pudo leer overrides ({path}): {ex.Message}");
-            return new Dictionary<string, OverrideEntry>();
-        }
-    }
-
-    private sealed record OverrideEntry(bool Unreleased, string? Note);
 
     private static string PluginOf(string path)
     {

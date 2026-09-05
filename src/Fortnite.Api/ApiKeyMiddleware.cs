@@ -34,7 +34,9 @@ public sealed class ApiKeyMiddleware(
             // La alta y la cuenta (POST /v1/keys, GET /v1/keys/me) sí se rigen por RequireApiKey.
             path.StartsWith("/v1/sprites", StringComparison.OrdinalIgnoreCase) ||
             path.Equals("/v1/keys/me", StringComparison.OrdinalIgnoreCase) ||
-            (HttpMethods.IsPost(ctx.Request.Method) && path.Equals("/v1/keys", StringComparison.OrdinalIgnoreCase));
+            (HttpMethods.IsPost(ctx.Request.Method) && path.Equals("/v1/keys", StringComparison.OrdinalIgnoreCase)) ||
+            // /v1/admin tiene su propia clave (X-Admin-Key, Admin:Password) e independiente de esta.
+            path.StartsWith("/v1/admin", StringComparison.OrdinalIgnoreCase);
 
         if (!_requireKey || isPublic)
         {

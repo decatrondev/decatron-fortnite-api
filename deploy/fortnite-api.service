@@ -29,6 +29,8 @@ Environment=Api__Source=File
 # Environment=Database__ConnectionString=Host=127.0.0.1;Database=fortnite_api;Username=fortnite;Password=...
 # API keys separadas por el índice (o pasá un appsettings.Production.json):
 # Environment=Api__ApiKeys__0=clave-para-el-bot-de-twitch
+# Clave del panel /admin del portal (corrección manual de unreleased). Vacía = panel deshabilitado.
+# Environment=Admin__Password=cambiame-por-algo-largo-y-random
 
 [Install]
 WantedBy=multi-user.target

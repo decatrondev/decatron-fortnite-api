@@ -73,6 +73,9 @@ else
 // Cuentas / API keys. Requiere Database:ConnectionString; si falta, /v1/keys responde 503
 // en vez de romper el arranque (el resto de la API sigue funcionando).
 builder.Services.AddSingleton(new ApiKeyStore(connString));
+builder.Services.AddSingleton(new SpriteDatabase(connString));
+
+var adminPassword = builder.Configuration["Admin:Password"] ?? "";
 
 // Un solo tier por ahora ("free"): límite parejo para todos. Cuando haya planes pagos,
 // esta política se parte por tier (leído de ApiKeyStore) en vez de ser fija.
@@ -210,6 +213,56 @@ v1.MapGet("/keys/me", async (HttpContext ctx, ApiKeyStore store) =>
     return info is null ? Results.Unauthorized() : Results.Ok(info);
 }).RequireRateLimiting("free");
 
+// --- Admin: corrección manual de unreleased ------------------------------
+// Protegido con una clave propia (Admin:Password), independiente de RequireApiKey:
+// el panel de admin tiene que estar cerrado siempre, exista o no el resto de la
+// autenticación pública. Vacía = panel deshabilitado (403 a todo /v1/admin).
+
+bool IsAdminAuthorized(HttpContext ctx) =>
+    !string.IsNullOrWhiteSpace(adminPassword) &&
+    ctx.Request.Headers.TryGetValue("X-Admin-Key", out var provided) &&
+    provided.ToString() == adminPassword;
+
+var admin = v1.MapGroup("/admin");
+
+admin.MapGet("/sprites", async (HttpContext ctx, SpriteDatabase db) =>
+{
+    if (!IsAdminAuthorized(ctx))
+    {
+        return Results.Unauthorized();
+    }
+
+    if (string.IsNullOrWhiteSpace(connString))
+    {
+        return Results.Problem("Admin no disponible: falta Database:ConnectionString.", statusCode: 503);
+    }
+
+    return Results.Ok(await db.GetAllForAdminAsync());
+});
+
+admin.MapPut("/sprites/{id}", async (string id, AdminOverrideRequest req, HttpContext ctx, SpriteDatabase db) =>
+{
+    if (!IsAdminAuthorized(ctx))
+    {
+        return Results.Unauthorized();
+    }
+
+    await db.SetOverrideAsync(id, req.Unreleased, req.Note);
+    return Results.Ok(new { id, req.Unreleased, req.Note });
+});
+
+admin.MapDelete("/sprites/{id}/override", async (string id, HttpContext ctx, SpriteDatabase db) =>
+{
+    if (!IsAdminAuthorized(ctx))
+    {
+        return Results.Unauthorized();
+    }
+
+    await db.ClearOverrideAsync(id);
+    return Results.Ok(new { id, cleared = true });
+});
+
 app.Run();
 
 sealed record SignupRequest(string Email, string? Name);
+sealed record AdminOverrideRequest(bool Unreleased, string? Note);

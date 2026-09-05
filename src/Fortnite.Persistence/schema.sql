@@ -1,24 +1,36 @@
 -- Esquema de la base de sprites. Idempotente: se puede correr en cada arranque del ingest.
 
 CREATE TABLE IF NOT EXISTS sprite (
-    id                text PRIMARY KEY,
-    name              text        NOT NULL,
-    theme             text        NOT NULL,
-    rarity            text        NOT NULL,
-    unreleased        boolean     NOT NULL,
-    season            text        NOT NULL,
-    character_name    text,
-    image_hash        text,
-    image_width       integer,
-    image_height      integer,
-    first_seen_patch  text        NOT NULL,
-    last_seen_patch   text        NOT NULL,
-    updated_at_utc    timestamptz NOT NULL DEFAULT now()
+    id                   text PRIMARY KEY,
+    name                 text        NOT NULL,
+    theme                text        NOT NULL,
+    rarity               text        NOT NULL,
+    unreleased           boolean     NOT NULL, -- valor servido: override manual si existe, si no el calculado
+    season               text        NOT NULL,
+    character_name       text,
+    image_hash           text,
+    image_width          integer,
+    image_height         integer,
+    first_seen_patch     text        NOT NULL,
+    last_seen_patch      text        NOT NULL,
+    updated_at_utc       timestamptz NOT NULL DEFAULT now()
 );
+
+-- Migración segura para bases creadas antes de esta columna.
+ALTER TABLE sprite ADD COLUMN IF NOT EXISTS computed_unreleased boolean;
 
 CREATE INDEX IF NOT EXISTS ix_sprite_season     ON sprite (season);
 CREATE INDEX IF NOT EXISTS ix_sprite_theme      ON sprite (theme);
 CREATE INDEX IF NOT EXISTS ix_sprite_unreleased ON sprite (unreleased);
+
+-- Correcciones manuales de unreleased, editables desde el panel /admin del portal.
+-- Se reaplican solas en cada ingest futuro (ver SpriteDatabase.WriteSnapshotAsync).
+CREATE TABLE IF NOT EXISTS sprite_override (
+    id             text        PRIMARY KEY REFERENCES sprite (id) ON DELETE CASCADE,
+    unreleased     boolean     NOT NULL,
+    note           text,
+    updated_at_utc timestamptz NOT NULL DEFAULT now()
+);
 
 CREATE TABLE IF NOT EXISTS snapshot (
     patch_version text        PRIMARY KEY,
