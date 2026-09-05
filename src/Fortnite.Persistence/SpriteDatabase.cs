@@ -67,25 +67,30 @@ public sealed class SpriteDatabase(string connectionString)
                 (@patchVersion, @Id, @Name, @Theme, @Rarity, @Unreleased, @Season, @Character, @Hash)
             """;
 
+        // unreleased servido = override manual si existe (tabla sprite_override), si no el calculado.
+        // computed_unreleased siempre guarda el valor crudo del ingest, para poder revertir un override.
         const string upsert = """
             INSERT INTO sprite
-                (id, name, theme, rarity, unreleased, season, character_name,
+                (id, name, theme, rarity, unreleased, computed_unreleased, season, character_name,
                  image_hash, image_width, image_height, first_seen_patch, last_seen_patch, updated_at_utc)
             VALUES
-                (@Id, @Name, @Theme, @Rarity, @Unreleased, @Season, @Character,
+                (@Id, @Name, @Theme, @Rarity,
+                 COALESCE((SELECT unreleased FROM sprite_override WHERE id = @Id), @Unreleased),
+                 @Unreleased, @Season, @Character,
                  @Hash, @Width, @Height, @patchVersion, @patchVersion, now())
             ON CONFLICT (id) DO UPDATE SET
-                name           = EXCLUDED.name,
-                theme          = EXCLUDED.theme,
-                rarity         = EXCLUDED.rarity,
-                unreleased     = EXCLUDED.unreleased,
-                season         = EXCLUDED.season,
-                character_name = EXCLUDED.character_name,
-                image_hash     = EXCLUDED.image_hash,
-                image_width    = EXCLUDED.image_width,
-                image_height   = EXCLUDED.image_height,
-                last_seen_patch = EXCLUDED.last_seen_patch,
-                updated_at_utc  = now()
+                name                = EXCLUDED.name,
+                theme               = EXCLUDED.theme,
+                rarity              = EXCLUDED.rarity,
+                unreleased          = COALESCE((SELECT unreleased FROM sprite_override WHERE id = sprite.id), EXCLUDED.computed_unreleased),
+                computed_unreleased = EXCLUDED.computed_unreleased,
+                season              = EXCLUDED.season,
+                character_name      = EXCLUDED.character_name,
+                image_hash          = EXCLUDED.image_hash,
+                image_width         = EXCLUDED.image_width,
+                image_height        = EXCLUDED.image_height,
+                last_seen_patch     = EXCLUDED.last_seen_patch,
+                updated_at_utc      = now()
             """;
 
         foreach (var (sprite, image) in rows)
@@ -174,5 +179,73 @@ public sealed class SpriteDatabase(string connectionString)
         public string Rarity { get; init; } = "";
         public string Name { get; init; } = "";
         public string? Hash { get; init; }
+    }
+
+    // --- Admin: overrides manuales de unreleased -----------------------------------------
+
+    public sealed record AdminSpriteRow
+    {
+        public string Id { get; init; } = "";
+        public string Name { get; init; } = "";
+        public string Theme { get; init; } = "";
+        public string Rarity { get; init; } = "";
+        public string Season { get; init; } = "";
+        public string? Character { get; init; }
+        public bool Unreleased { get; init; }
+        public bool? ComputedUnreleased { get; init; }
+        public bool Overridden { get; init; }
+        public string? Note { get; init; }
+    }
+
+    public async Task<IReadOnlyList<AdminSpriteRow>> GetAllForAdminAsync()
+    {
+        await using var conn = Open();
+        var rows = await conn.QueryAsync<AdminSpriteRow>(
+            """
+            SELECT s.id, s.name, s.theme, s.rarity, s.season, s.character_name AS Character,
+                   s.unreleased, s.computed_unreleased AS ComputedUnreleased,
+                   (o.id IS NOT NULL) AS Overridden, o.note AS Note
+            FROM sprite s
+            LEFT JOIN sprite_override o ON o.id = s.id
+            ORDER BY s.season, s.character_name, s.theme
+            """);
+        return rows.ToList();
+    }
+
+    /// <summary>Fija (o reemplaza) el override manual de un sprite y refresca el valor servido al toque.</summary>
+    public async Task SetOverrideAsync(string id, bool unreleased, string? note)
+    {
+        await using var conn = Open();
+        await using var tx = await conn.BeginTransactionAsync();
+
+        await conn.ExecuteAsync(
+            """
+            INSERT INTO sprite_override (id, unreleased, note, updated_at_utc)
+            VALUES (@id, @unreleased, @note, now())
+            ON CONFLICT (id) DO UPDATE SET
+                unreleased = EXCLUDED.unreleased,
+                note = EXCLUDED.note,
+                updated_at_utc = now()
+            """, new { id, unreleased, note }, tx);
+
+        await conn.ExecuteAsync(
+            "UPDATE sprite SET unreleased = @unreleased, updated_at_utc = now() WHERE id = @id",
+            new { id, unreleased }, tx);
+
+        await tx.CommitAsync();
+    }
+
+    /// <summary>Saca el override manual y vuelve a servir el valor calculado por el ingest.</summary>
+    public async Task ClearOverrideAsync(string id)
+    {
+        await using var conn = Open();
+        await using var tx = await conn.BeginTransactionAsync();
+
+        await conn.ExecuteAsync("DELETE FROM sprite_override WHERE id = @id", new { id }, tx);
+        await conn.ExecuteAsync(
+            "UPDATE sprite SET unreleased = COALESCE(computed_unreleased, unreleased), updated_at_utc = now() WHERE id = @id",
+            new { id }, tx);
+
+        await tx.CommitAsync();
     }
 }

@@ -4,6 +4,7 @@ import { useBaseUrl, useStoredApiKey } from "./lib/api";
 import { Landing } from "./pages/Landing";
 import { Auth } from "./pages/Auth";
 import { Dashboard } from "./pages/Dashboard";
+import { Admin } from "./pages/Admin";
 
 export default function App() {
   const [base, setBase] = useBaseUrl();
@@ -69,6 +70,7 @@ export default function App() {
           path="/dashboard"
           element={<Dashboard base={base} apiKey={apiKey} email={email} setApiKey={setApiKey} />}
         />
+        <Route path="/admin" element={<Admin base={base} />} />
       </Routes>
     </div>
   );
