@@ -500,3 +500,6 @@ aes.key
 /mappings/
 *.usmap
 /design-canvas/
+
+# Config local de herramientas, no forma parte del proyecto
+/.claude/
