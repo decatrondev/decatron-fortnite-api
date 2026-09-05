@@ -48,9 +48,18 @@ export function SpritesExplorer({ base }: { base: string }) {
     [sprites, q, season, theme, rarity],
   );
 
+  // Progreso de la temporada elegida: cuántos de esa temporada ya se pueden conseguir ahora
+  // (unreleased=false). No hay tracking de colección personal, el "conseguidos" arranca en 0.
+  const seasonProgress = useMemo(() => {
+    if (!season) return null;
+    const inSeason = sprites.filter((s) => s.season === season);
+    const available = inSeason.filter((s) => !s.unreleased).length;
+    return { available, total: inSeason.length };
+  }, [sprites, season]);
+
   return (
     <section>
-      <div className="flex flex-wrap items-center gap-2 mb-4">
+      <div className="flex flex-wrap items-center gap-2 mb-1">
         <h2 className="text-lg font-semibold text-neutral-100 mr-auto">
           Explorador {loading ? "…" : `(${filtered.length}/${sprites.length})`}
         </h2>
@@ -65,6 +74,19 @@ export function SpritesExplorer({ base }: { base: string }) {
         <Select value={rarity} onChange={setRarity} options={rarities} label="rarity" />
       </div>
 
+      <div className="mb-4 h-5">
+        {seasonProgress && (
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-sm text-neutral-200">0/{seasonProgress.available}</span>
+            <span className="text-xs text-neutral-500">
+              disponibles ahora en {season}
+              {seasonProgress.total > seasonProgress.available &&
+                ` · ${seasonProgress.total - seasonProgress.available} todavía sin salir`}
+            </span>
+          </div>
+        )}
+      </div>
+
       {error && (
         <div className="text-sm text-red-400 border border-red-900 rounded-lg p-3 bg-red-950/40 mb-4">
           No se pudo cargar {base || "(mismo dominio)"}/v1/sprites — {error}
@@ -73,19 +95,31 @@ export function SpritesExplorer({ base }: { base: string }) {
 
       <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 gap-3">
         {filtered.map((s) => (
-          <figure key={s.id} className="group" title={`${s.id}\n${s.rarity} · ${s.season}`}>
-            <div className="aspect-square bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden grid place-items-center">
+          <figure
+            key={s.id}
+            className="group"
+            title={`${s.id}\n${s.rarity} · ${s.season}${s.unreleased ? " · todavía no disponible" : ""}`}
+          >
+            <div className="relative aspect-square bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden grid place-items-center">
               <img
                 src={`${base}/sprites/${s.id}.png`}
                 alt={s.name}
                 loading="lazy"
-                className="w-full h-full object-contain [image-rendering:pixelated]"
+                className={`w-full h-full object-contain [image-rendering:pixelated] ${
+                  s.unreleased ? "opacity-30 grayscale" : ""
+                }`}
               />
+              {s.unreleased && (
+                <div className="absolute inset-0 flex items-center justify-center bg-neutral-950/40">
+                  <span className="px-1.5 py-0.5 rounded bg-neutral-950/90 border border-neutral-700 font-mono text-[9px] uppercase tracking-wide text-neutral-300">
+                    No disponible
+                  </span>
+                </div>
+              )}
             </div>
             <figcaption className="mt-1 text-[11px] leading-tight text-neutral-400">
               <span className="block text-neutral-200 truncate">{s.name}</span>
               <span className={RARITY_COLOR[s.rarity] ?? "text-neutral-500"}>{s.rarity}</span>
-              {s.unreleased && <span className="text-red-400"> · unreleased</span>}
             </figcaption>
           </figure>
         ))}

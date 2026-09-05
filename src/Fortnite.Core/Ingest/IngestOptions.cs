@@ -44,6 +44,14 @@ public sealed record IngestOptions
     public string DataRoot { get; init; } = "data";
 
     /// <summary>
+    /// Correcciones manuales a `unreleased` para casos que la heurística automática (peso de
+    /// drop) no puede resolver sola — cosas que solo se confirman jugando. No es una fuente
+    /// externa en runtime: es un archivo del propio repo que se actualiza a mano cuando hace
+    /// falta. Ver <c>overrides/unreleased-overrides.json</c>.
+    /// </summary>
+    public string OverridesFile { get; init; } = "overrides/unreleased-overrides.json";
+
+    /// <summary>
     /// Carpetas de iconos de sprites de coleccionable, confirmadas en el parche 42.10.
     /// Una por plugin de temporada (SpriteLibrary_*).
     /// </summary>
