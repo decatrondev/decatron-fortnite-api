@@ -108,6 +108,22 @@ var app = builder.Build();
 
 app.Logger.LogInformation("Origen: {Source} · DataRoot: {DataRoot}", sourceKind, dataRoot);
 
+// Aplica el esquema (tablas/columnas nuevas) al arrancar si hay base configurada. Así un
+// deploy por "git pull" + reiniciar el servicio alcanza: no hace falta correr el ingest
+// (que necesita Fortnite instalado) solo para migrar la base del VPS.
+if (!string.IsNullOrWhiteSpace(connString))
+{
+    try
+    {
+        await new SpriteDatabase(connString).EnsureSchemaAsync();
+        app.Logger.LogInformation("Esquema de base verificado/actualizado.");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "No se pudo verificar/actualizar el esquema de la base.");
+    }
+}
+
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseCors();
