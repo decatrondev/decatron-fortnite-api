@@ -133,3 +133,31 @@ export async function clearAdminOverride(base: string, adminKey: string, id: str
   if (res.status === 401) throw new Error("unauthorized");
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
+
+// --- Sincronización con fortnite.gg -----------------------------------------
+
+export type GgSyncEntry = {
+  id: string;
+  character: string;
+  theme: string;
+  season: string;
+};
+
+export type GgCard = {
+  character: string;
+  theme: string;
+  season: string;
+};
+
+export type GgSyncResult = {
+  toRelease: GgSyncEntry[];
+  suspicious: GgSyncEntry[];
+  missing: GgCard[];
+};
+
+export async function fetchGgSync(base: string, adminKey: string): Promise<GgSyncResult> {
+  const res = await fetch(`${base}/v1/admin/sync/fortnitegg`, { headers: { "X-Admin-Key": adminKey } });
+  if (res.status === 401) throw new Error("unauthorized");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()) as GgSyncResult;
+}

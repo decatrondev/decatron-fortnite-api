@@ -278,6 +278,34 @@ admin.MapDelete("/sprites/{id}/override", async (string id, HttpContext ctx, Spr
     return Results.Ok(new { id, cleared = true });
 });
 
+// Sincronización manual contra fortnite.gg/sprites: solo lee y compara, nunca escribe sola.
+// El operador revisa el diff en el panel y aplica los cambios uno por uno con los endpoints
+// de arriba (mismo mecanismo de siempre).
+admin.MapGet("/sync/fortnitegg", async (HttpContext ctx, SpriteDatabase db, CancellationToken ct) =>
+{
+    if (!IsAdminAuthorized(ctx))
+    {
+        return Results.Unauthorized();
+    }
+
+    if (string.IsNullOrWhiteSpace(connString))
+    {
+        return Results.Problem("Admin no disponible: falta Database:ConnectionString.", statusCode: 503);
+    }
+
+    try
+    {
+        var ggCards = await FortniteGgSync.FetchAsync(ct);
+        var catalog = await db.GetAllForAdminAsync();
+        var result = FortniteGgSync.Compare(ggCards, catalog);
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"No se pudo sincronizar con fortnite.gg: {ex.Message}", statusCode: 502);
+    }
+});
+
 app.Run();
 
 sealed record SignupRequest(string Email, string? Name);

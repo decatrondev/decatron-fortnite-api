@@ -167,6 +167,42 @@ public static class SpriteDefinitionReader
             log($"Variantes 'UseArchetype' (placeholder de la base) omitidas: {skippedArchetype}");
         }
 
+        foreach (var manual in ManualEntries())
+        {
+            var id = SpriteId.From(manual.Character, manual.Theme);
+            var textureFile = TryExportIcon(provider, manual.IconPath, id, layout, out var note);
+            if (textureFile is null)
+            {
+                warnings.Add($"{id} (manual): icono no exportado ({note})");
+                continue;
+            }
+
+            catalog.Add(new Sprite
+            {
+                Id = id,
+                Name = manual.Character,
+                Theme = manual.Theme,
+                Rarity = manual.Rarity,
+                Unreleased = manual.Unreleased,
+                Season = manual.Season,
+                Character = manual.Character,
+            });
+
+            raw.Add(new RawSprite
+            {
+                SourceAssetPath = manual.IconPath,
+                TextureFile = textureFile,
+                Character = manual.Character,
+                Theme = manual.Theme,
+                Rarity = manual.Rarity,
+                Season = manual.Season,
+                UnreleasedHint = manual.Unreleased,
+                Notes = manual.Notes,
+            });
+
+            log($"{id}: agregado a mano ({manual.Notes})");
+        }
+
         log($"Sprites en catálogo: {catalog.Count}");
         log($"PNG exportados: {raw.Count(r => r.TextureFile is not null)} -> {layout.TexturesDirectory}");
         if (warnings.Count > 0)
@@ -176,6 +212,28 @@ public static class SpriteDefinitionReader
 
         return new Result(catalog, raw, warnings);
     }
+
+    private sealed record ManualEntry(
+        string Character, string Theme, string Rarity, string Season, string IconPath, bool Unreleased, string Notes);
+
+    /// <summary>
+    /// Sprites que no viven bajo un ESD_* estándar y por eso el escaneo de arriba nunca los ve.
+    /// "Burnt Peanut" es un ExtractableItemDefinition (EID_) del evento "Sprite Extraction" de
+    /// Ch7 S3, con su propio esquema de propiedades — no vale la pena un lector aparte para un
+    /// solo personaje, así que se carga a mano. Si en algún parche futuro aparece otro caso
+    /// igual, se agrega otra entrada acá.
+    /// </summary>
+    private static IReadOnlyList<ManualEntry> ManualEntries() =>
+    [
+        new ManualEntry(
+            Character: "Burnt Peanut",
+            Theme: SpriteThemes.Basic,
+            Rarity: SpriteRarities.Mythic,
+            Season: "Runners",
+            IconPath: "/SpriteLibrary_CH7S3/UI/T_Icon_BR_Creature_Sprite_BurntPeanut_ui.T_Icon_BR_Creature_Sprite_BurntPeanut_ui",
+            Unreleased: false,
+            Notes: "EID_BurntPeanut (ExtractableItemDefinition, evento Sprite Extraction); confirmado obtenible en fortnite.gg C7S3"),
+    ];
 
     private sealed record EsdRecord
     {

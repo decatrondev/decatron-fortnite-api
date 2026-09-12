@@ -51,6 +51,8 @@ public sealed record IngestOptions
     [
         "FortniteGame/Plugins/GameFeatures/SpriteLibrary_CH7S3/Content/UI",
         "FortniteGame/Plugins/GameFeatures/SpriteLibrary_Ch7S4/Content/UI",
+        "FortniteGame/Plugins/GameFeatures/BRCosmetics/Content/UI/Foundation/Textures/Icons/Sprites",
+        "FortniteGame/Plugins/GameFeatures/MorningBellItems_OrangeRemote/Content/Assets/Icons",
     ];
 
     /// <summary>

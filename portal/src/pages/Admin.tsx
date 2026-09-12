@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import {
   clearAdminOverride,
   fetchAdminSprites,
+  fetchGgSync,
   getStoredAdminKey,
   setAdminOverride,
   setStoredAdminKey,
 } from "../lib/api";
-import type { AdminSprite } from "../lib/api";
+import type { AdminSprite, GgSyncResult } from "../lib/api";
 
 export function Admin({ base }: { base: string }) {
   const [adminKey, setAdminKeyState] = useState(() => getStoredAdminKey());
@@ -102,6 +103,8 @@ export function Admin({ base }: { base: string }) {
         </button>
       </div>
 
+      <GgSyncPanel base={base} adminKey={adminKey} onApplied={() => load(adminKey)} />
+
       <div className="flex flex-wrap items-center gap-2">
         <input
           value={q}
@@ -185,6 +188,144 @@ export function Admin({ base }: { base: string }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function GgSyncPanel({
+  base,
+  adminKey,
+  onApplied,
+}: {
+  base: string;
+  adminKey: string;
+  onApplied: () => void;
+}) {
+  const [result, setResult] = useState<GgSyncResult | null>(null);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run() {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await fetchGgSync(base, adminKey);
+      setResult(r);
+      setChecked(new Set(r.toRelease.map((e) => e.id)));
+    } catch (e) {
+      setError(String((e as Error).message ?? e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function apply() {
+    if (!result) return;
+    setApplying(true);
+    try {
+      for (const entry of result.toRelease) {
+        if (checked.has(entry.id)) {
+          await setAdminOverride(base, adminKey, entry.id, false, "sincronizado con fortnite.gg");
+        }
+      }
+      setResult(null);
+      onApplied();
+    } catch (e) {
+      setError(String((e as Error).message ?? e));
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  return (
+    <div className="border border-neutral-800 rounded-lg p-3 flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-neutral-300 mr-auto">Sincronizar con fortnite.gg</span>
+        <button
+          onClick={run}
+          disabled={loading}
+          className="px-3 py-1 rounded font-mono text-xs border border-neutral-700 text-neutral-300 hover:border-neutral-500 disabled:opacity-40"
+        >
+          {loading ? "buscando…" : "buscar diferencias"}
+        </button>
+      </div>
+
+      {error && <div className="text-xs text-red-400">{error}</div>}
+
+      {result && (
+        <div className="flex flex-col gap-3">
+          {result.toRelease.length === 0 && result.suspicious.length === 0 && result.missing.length === 0 && (
+            <div className="text-xs text-emerald-400 font-mono">todo sincronizado, sin diferencias</div>
+          )}
+
+          {result.toRelease.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <div className="text-xs text-neutral-500 font-mono uppercase">
+                A liberar ({result.toRelease.length}) — gg ya lo tiene, tu base dice no disponible
+              </div>
+              {result.toRelease.map((e) => (
+                <label key={e.id} className="flex items-center gap-2 text-sm text-neutral-300">
+                  <input
+                    type="checkbox"
+                    checked={checked.has(e.id)}
+                    onChange={(ev) =>
+                      setChecked((prev) => {
+                        const next = new Set(prev);
+                        if (ev.target.checked) next.add(e.id);
+                        else next.delete(e.id);
+                        return next;
+                      })
+                    }
+                  />
+                  <span className="font-mono text-[11px] text-neutral-600">{e.id}</span>
+                  <span>
+                    {e.character} · {e.theme} · {e.season}
+                  </span>
+                </label>
+              ))}
+              <button
+                onClick={apply}
+                disabled={applying || checked.size === 0}
+                className="self-start mt-1 px-3 py-1 rounded font-mono text-xs border border-emerald-800 text-emerald-400 bg-emerald-950/30 disabled:opacity-40"
+              >
+                {applying ? "aplicando…" : `aplicar seleccionados (${checked.size})`}
+              </button>
+            </div>
+          )}
+
+          {result.suspicious.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <div className="text-xs text-neutral-500 font-mono uppercase">
+                Sospechosos ({result.suspicious.length}) — tu base dice disponible, gg no lo lista
+              </div>
+              <div className="text-xs text-neutral-400 max-h-40 overflow-y-auto flex flex-col gap-0.5">
+                {result.suspicious.map((e) => (
+                  <div key={e.id} className="font-mono">
+                    {e.character} · {e.theme} · {e.season}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {result.missing.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <div className="text-xs text-neutral-500 font-mono uppercase">
+                Faltantes ({result.missing.length}) — gg lo tiene, no existe en tu catálogo (hace falta ingest)
+              </div>
+              <div className="text-xs text-amber-400 max-h-40 overflow-y-auto flex flex-col gap-0.5">
+                {result.missing.map((c, i) => (
+                  <div key={i} className="font-mono">
+                    {c.character} · {c.theme} · {c.season}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
