@@ -230,6 +230,11 @@ function GgSyncPanel({
           await setAdminOverride(base, adminKey, entry.id, false, "sincronizado con fortnite.gg");
         }
       }
+      for (const entry of result.suspicious) {
+        if (checked.has(entry.id)) {
+          await setAdminOverride(base, adminKey, entry.id, true, "sincronizado con fortnite.gg (ya no aparece en su lista)");
+        }
+      }
       setResult(null);
       onApplied();
     } catch (e) {
@@ -238,6 +243,8 @@ function GgSyncPanel({
       setApplying(false);
     }
   }
+
+  const totalChecked = checked.size;
 
   return (
     <div className="border border-neutral-800 rounded-lg p-3 flex flex-col gap-3">
@@ -285,29 +292,48 @@ function GgSyncPanel({
                   </span>
                 </label>
               ))}
-              <button
-                onClick={apply}
-                disabled={applying || checked.size === 0}
-                className="self-start mt-1 px-3 py-1 rounded font-mono text-xs border border-emerald-800 text-emerald-400 bg-emerald-950/30 disabled:opacity-40"
-              >
-                {applying ? "aplicando…" : `aplicar seleccionados (${checked.size})`}
-              </button>
             </div>
           )}
 
           {result.suspicious.length > 0 && (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5">
               <div className="text-xs text-neutral-500 font-mono uppercase">
-                Sospechosos ({result.suspicious.length}) — tu base dice disponible, gg no lo lista
+                Sospechosos ({result.suspicious.length}) — tu base dice disponible, gg ya no lo lista
               </div>
-              <div className="text-xs text-neutral-400 max-h-40 overflow-y-auto flex flex-col gap-0.5">
-                {result.suspicious.map((e) => (
-                  <div key={e.id} className="font-mono">
+              <div className="text-[11px] text-neutral-600">
+                Baja confianza: gg puede tardar en agregar algo aunque ya esté liberado. Tildá solo lo que confirmes vos.
+              </div>
+              {result.suspicious.map((e) => (
+                <label key={e.id} className="flex items-center gap-2 text-sm text-neutral-300">
+                  <input
+                    type="checkbox"
+                    checked={checked.has(e.id)}
+                    onChange={(ev) =>
+                      setChecked((prev) => {
+                        const next = new Set(prev);
+                        if (ev.target.checked) next.add(e.id);
+                        else next.delete(e.id);
+                        return next;
+                      })
+                    }
+                  />
+                  <span className="font-mono text-[11px] text-neutral-600">{e.id}</span>
+                  <span>
                     {e.character} · {e.theme} · {e.season}
-                  </div>
-                ))}
-              </div>
+                  </span>
+                </label>
+              ))}
             </div>
+          )}
+
+          {(result.toRelease.length > 0 || result.suspicious.length > 0) && (
+            <button
+              onClick={apply}
+              disabled={applying || totalChecked === 0}
+              className="self-start px-3 py-1 rounded font-mono text-xs border border-emerald-800 text-emerald-400 bg-emerald-950/30 disabled:opacity-40"
+            >
+              {applying ? "aplicando…" : `aplicar seleccionados (${totalChecked})`}
+            </button>
           )}
 
           {result.missing.length > 0 && (
