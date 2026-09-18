@@ -66,6 +66,9 @@ public static partial class FortniteGgSync
     [GeneratedRegex(@"data-season='(?<v>[^']*)'", RegexOptions.Compiled)]
     private static partial Regex SeasonRegex();
 
+    [GeneratedRegex(@"data-unreleased='(?<v>[01])'", RegexOptions.Compiled)]
+    private static partial Regex UnreleasedRegex();
+
     /// <summary>
     /// Descarga fortnite.gg/sprites y parsea las cards con season/variant conocidos.
     /// Usa "curl" como subproceso en vez de HttpClient: Cloudflare bloquea el fingerprint TLS
@@ -92,6 +95,14 @@ public static partial class FortniteGgSync
 
             if (!ThemeByVariant.TryGetValue(variant.Groups["v"].Value, out var theme) ||
                 !SeasonBySiteId.TryGetValue(season.Groups["v"].Value, out var seasonName))
+            {
+                continue;
+            }
+
+            // gg marca explícitamente algunas cards como todavía no liberadas (personajes recién
+            // agregados, previsualizados pero sin confirmar). Esas no cuentan como "released" acá.
+            var unreleased = UnreleasedRegex().Match(attrs);
+            if (unreleased.Success && unreleased.Groups["v"].Value == "1")
             {
                 continue;
             }
