@@ -88,6 +88,7 @@ public static class SpriteDefinitionReader
         var raw = new List<RawSprite>();
 
         var skippedArchetype = 0;
+        var skippedPreStaged = 0;
 
         foreach (var rec in parsed)
         {
@@ -106,6 +107,13 @@ public static class SpriteDefinitionReader
             var character = CharacterName(baseRec?.ItemName ?? rec.ItemName ?? stem);
             var theme = ThemeCanonical(rec.VariantToken);
             var season = options.SeasonNames.TryGetValue(rec.Plugin, out var s) ? s : rec.Plugin;
+
+            if (IsPreStagedUnconfirmed(character, theme))
+            {
+                skippedPreStaged++;
+                continue;
+            }
+
             var id = SpriteId.From(character, theme);
             var name = (rec.ItemName ?? $"{theme} {character}")
                 .Replace(" Sprite", "", StringComparison.OrdinalIgnoreCase)
@@ -167,6 +175,11 @@ public static class SpriteDefinitionReader
             log($"Variantes 'UseArchetype' (placeholder de la base) omitidas: {skippedArchetype}");
         }
 
+        if (skippedPreStaged > 0)
+        {
+            log($"Variantes pre-cargadas sin confirmar por ningún tracker externo omitidas: {skippedPreStaged}");
+        }
+
         foreach (var manual in ManualEntries())
         {
             var id = SpriteId.From(manual.Character, manual.Theme);
@@ -212,6 +225,21 @@ public static class SpriteDefinitionReader
 
         return new Result(catalog, raw, warnings);
     }
+
+    /// <summary>
+    /// Variantes que existen en los archivos del juego pero que ningún tracker externo
+    /// (fortnite.gg, rickventure.com) lista todavía — ni siquiera como placeholder "no
+    /// disponible". Son datos pre-cargados de personajes sin anunciar (Epic sube el asset
+    /// antes de revelarlo). Se excluyen del catálogo entero (no solo unreleased) para que
+    /// el conteo total coincida exacto con lo que el jugador puede verificar afuera. Se sacan
+    /// de esta lista en cuanto aparezcan en fortnite.gg (el sync de /admin los va a detectar
+    /// como "missing" cuando eso pase).
+    /// </summary>
+    private static bool IsPreStagedUnconfirmed(string character, string theme) =>
+        (character.Equals("Cheat Master Dumpster Dive", StringComparison.OrdinalIgnoreCase)) ||
+        (character.Equals("Mega Man", StringComparison.OrdinalIgnoreCase) && theme != SpriteThemes.Basic) ||
+        (character.Equals("Jackrabbit", StringComparison.OrdinalIgnoreCase) &&
+         theme is SpriteThemes.Candy or SpriteThemes.Holofoil or "TrickTreat");
 
     private sealed record ManualEntry(
         string Character, string Theme, string Rarity, string Season, string IconPath, bool Unreleased, string Notes);
