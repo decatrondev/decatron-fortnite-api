@@ -306,6 +306,32 @@ admin.MapGet("/sync/fortnitegg", async (HttpContext ctx, SpriteDatabase db, Canc
     }
 });
 
+// Vista completa para comparar 1 a 1 por nombre, en vez de confiar solo en el matching automático.
+admin.MapGet("/sync/fortnitegg/full", async (HttpContext ctx, SpriteDatabase db, CancellationToken ct) =>
+{
+    if (!IsAdminAuthorized(ctx))
+    {
+        return Results.Unauthorized();
+    }
+
+    if (string.IsNullOrWhiteSpace(connString))
+    {
+        return Results.Problem("Admin no disponible: falta Database:ConnectionString.", statusCode: 503);
+    }
+
+    try
+    {
+        var ggCards = await FortniteGgSync.FetchAsync(ct);
+        var catalog = await db.GetAllForAdminAsync();
+        var rows = FortniteGgSync.CompareFull(ggCards, catalog);
+        return Results.Ok(rows);
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"No se pudo sincronizar con fortnite.gg: {ex.Message}", statusCode: 502);
+    }
+});
+
 app.Run();
 
 sealed record SignupRequest(string Email, string? Name);

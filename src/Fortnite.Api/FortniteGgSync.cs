@@ -13,7 +13,7 @@ namespace Fortnite.Api;
 /// </summary>
 public static partial class FortniteGgSync
 {
-    public sealed record GgCard(string Character, string Theme, string Season);
+    public sealed record GgCard(string Character, string Theme, string Season, bool Unreleased);
 
     public sealed record SyncResult(
         IReadOnlyList<SyncEntry> ToRelease,
@@ -21,6 +21,10 @@ public static partial class FortniteGgSync
         IReadOnlyList<GgCard> Missing);
 
     public sealed record SyncEntry(string Id, string Character, string Theme, string Season);
+
+    /// <summary>Una fila de la vista de comparación 1 a 1 (unión de todo lo que tenemos nosotros y gg).</summary>
+    public sealed record CompareRow(
+        string? Id, string Character, string Theme, string Season, string OurStatus, string GgStatus);
 
     private static readonly IReadOnlyDictionary<string, string> SeasonBySiteId = new Dictionary<string, string>
     {
@@ -100,12 +104,9 @@ public static partial class FortniteGgSync
             }
 
             // gg marca explícitamente algunas cards como todavía no liberadas (personajes recién
-            // agregados, previsualizados pero sin confirmar). Esas no cuentan como "released" acá.
-            var unreleased = UnreleasedRegex().Match(attrs);
-            if (unreleased.Success && unreleased.Groups["v"].Value == "1")
-            {
-                continue;
-            }
+            // agregados, previsualizados pero sin confirmar).
+            var unreleasedMatch = UnreleasedRegex().Match(attrs);
+            var unreleased = unreleasedMatch.Success && unreleasedMatch.Groups["v"].Value == "1";
 
             var character = parent.Groups["v"].Value;
             if (CharacterAliasFromGg.TryGetValue(character, out var alias))
@@ -113,7 +114,7 @@ public static partial class FortniteGgSync
                 character = alias;
             }
 
-            cards.Add(new GgCard(character, theme, seasonName));
+            cards.Add(new GgCard(character, theme, seasonName, unreleased));
         }
 
         return cards;
@@ -189,14 +190,14 @@ public static partial class FortniteGgSync
             index[Key(s.Character ?? s.Name, s.Theme)] = s;
         }
 
-        var ggKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var ggReleasedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var toRelease = new List<SyncEntry>();
         var missing = new List<GgCard>();
 
-        foreach (var card in ggCards)
+        foreach (var card in ggCards.Where(c => !c.Unreleased))
         {
             var key = Key(card.Character, card.Theme);
-            ggKeys.Add(key);
+            ggReleasedKeys.Add(key);
 
             if (!index.TryGetValue(key, out var sprite))
             {
@@ -211,11 +212,56 @@ public static partial class FortniteGgSync
         }
 
         var suspicious = catalog
-            .Where(s => !s.Unreleased && !ggKeys.Contains(Key(s.Character ?? s.Name, s.Theme)))
+            .Where(s => !s.Unreleased && !ggReleasedKeys.Contains(Key(s.Character ?? s.Name, s.Theme)))
             .Select(s => new SyncEntry(s.Id, s.Character ?? s.Name, s.Theme, s.Season))
             .ToList();
 
         return new SyncResult(toRelease, suspicious, missing);
+    }
+
+    /// <summary>
+    /// Vista completa para comparar 1 a 1: unión de todo lo que tenemos nosotros y todo lo que
+    /// tiene gg (liberado o no), para revisar a ojo en vez de confiar ciegamente en el matching
+    /// automático por nombre.
+    /// </summary>
+    public static IReadOnlyList<CompareRow> CompareFull(IReadOnlyList<GgCard> ggCards, IReadOnlyList<SpriteDatabase.AdminSpriteRow> catalog)
+    {
+        var ours = new Dictionary<string, SpriteDatabase.AdminSpriteRow>(StringComparer.OrdinalIgnoreCase);
+        foreach (var s in catalog)
+        {
+            ours[Key(s.Character ?? s.Name, s.Theme)] = s;
+        }
+
+        var gg = new Dictionary<string, GgCard>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in ggCards)
+        {
+            gg[Key(c.Character, c.Theme)] = c;
+        }
+
+        var keys = new HashSet<string>(ours.Keys, StringComparer.OrdinalIgnoreCase);
+        keys.UnionWith(gg.Keys);
+
+        var rows = new List<CompareRow>();
+        foreach (var key in keys)
+        {
+            ours.TryGetValue(key, out var sprite);
+            gg.TryGetValue(key, out var card);
+
+            var character = sprite?.Character ?? sprite?.Name ?? card!.Character;
+            var theme = sprite?.Theme ?? card!.Theme;
+            var season = sprite?.Season ?? card!.Season;
+
+            var ourStatus = sprite is null ? "no existe" : sprite.Unreleased ? "no disponible" : "disponible";
+            var ggStatus = card is null ? "no existe" : card.Unreleased ? "no disponible" : "disponible";
+
+            rows.Add(new CompareRow(sprite?.Id, character, theme, season, ourStatus, ggStatus));
+        }
+
+        return rows
+            .OrderBy(r => r.Season, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(r => r.Character, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(r => r.Theme, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private static string Key(string character, string theme) => $"{character.Trim()}|{theme.Trim()}";

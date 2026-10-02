@@ -161,3 +161,19 @@ export async function fetchGgSync(base: string, adminKey: string): Promise<GgSyn
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return (await res.json()) as GgSyncResult;
 }
+
+export type GgCompareRow = {
+  id: string | null;
+  character: string;
+  theme: string;
+  season: string;
+  ourStatus: "disponible" | "no disponible" | "no existe";
+  ggStatus: "disponible" | "no disponible" | "no existe";
+};
+
+export async function fetchGgSyncFull(base: string, adminKey: string): Promise<GgCompareRow[]> {
+  const res = await fetch(`${base}/v1/admin/sync/fortnitegg/full`, { headers: { "X-Admin-Key": adminKey } });
+  if (res.status === 401) throw new Error("unauthorized");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()) as GgCompareRow[];
+}

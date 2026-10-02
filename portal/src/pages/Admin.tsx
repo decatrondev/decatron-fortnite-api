@@ -3,11 +3,12 @@ import {
   clearAdminOverride,
   fetchAdminSprites,
   fetchGgSync,
+  fetchGgSyncFull,
   getStoredAdminKey,
   setAdminOverride,
   setStoredAdminKey,
 } from "../lib/api";
-import type { AdminSprite, GgSyncResult } from "../lib/api";
+import type { AdminSprite, GgCompareRow, GgSyncResult } from "../lib/api";
 
 export function Admin({ base }: { base: string }) {
   const [adminKey, setAdminKeyState] = useState(() => getStoredAdminKey());
@@ -207,6 +208,21 @@ function GgSyncPanel({
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [compareRows, setCompareRows] = useState<GgCompareRow[] | null>(null);
+  const [compareLoading, setCompareLoading] = useState(false);
+
+  async function runCompare() {
+    setCompareLoading(true);
+    setError(null);
+    try {
+      setCompareRows(await fetchGgSyncFull(base, adminKey));
+    } catch (e) {
+      setError(String((e as Error).message ?? e));
+    } finally {
+      setCompareLoading(false);
+    }
+  }
+
   async function run() {
     setLoading(true);
     setError(null);
@@ -251,6 +267,13 @@ function GgSyncPanel({
       <div className="flex items-center gap-2">
         <span className="text-sm text-neutral-300 mr-auto">Sincronizar con fortnite.gg</span>
         <button
+          onClick={runCompare}
+          disabled={compareLoading}
+          className="px-3 py-1 rounded font-mono text-xs border border-neutral-700 text-neutral-300 hover:border-neutral-500 disabled:opacity-40"
+        >
+          {compareLoading ? "cargando…" : "comparar 1 a 1"}
+        </button>
+        <button
           onClick={run}
           disabled={loading}
           className="px-3 py-1 rounded font-mono text-xs border border-neutral-700 text-neutral-300 hover:border-neutral-500 disabled:opacity-40"
@@ -260,6 +283,16 @@ function GgSyncPanel({
       </div>
 
       {error && <div className="text-xs text-red-400">{error}</div>}
+
+      {compareRows && (
+        <GgCompareTable
+          rows={compareRows}
+          base={base}
+          adminKey={adminKey}
+          onClose={() => setCompareRows(null)}
+          onApplied={onApplied}
+        />
+      )}
 
       {result && (
         <div className="flex flex-col gap-3">
@@ -352,6 +385,109 @@ function GgSyncPanel({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function statusColor(status: string) {
+  if (status === "disponible") return "text-emerald-400";
+  if (status === "no disponible") return "text-red-400";
+  return "text-neutral-600";
+}
+
+function GgCompareTable({
+  rows,
+  base,
+  adminKey,
+  onClose,
+  onApplied,
+}: {
+  rows: GgCompareRow[];
+  base: string;
+  adminKey: string;
+  onClose: () => void;
+  onApplied: () => void;
+}) {
+  const [q, setQ] = useState("");
+  const [onlyDiff, setOnlyDiff] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const filtered = useMemo(
+    () =>
+      rows.filter(
+        (r) =>
+          (!q || r.character.toLowerCase().includes(q.toLowerCase())) &&
+          (!onlyDiff || r.ourStatus !== r.ggStatus),
+      ),
+    [rows, q, onlyDiff],
+  );
+
+  async function matchGg(row: GgCompareRow) {
+    if (!row.id || row.ggStatus === "no existe") return;
+    setBusyId(row.id);
+    try {
+      await setAdminOverride(base, adminKey, row.id, row.ggStatus === "no disponible", "sincronizado con fortnite.gg (comparación 1 a 1)");
+      onApplied();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <div className="border border-neutral-800 rounded-lg p-3 flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="buscar por nombre…"
+          className="bg-neutral-900 border border-neutral-800 rounded-md px-2 py-1 text-sm outline-none focus:border-neutral-600"
+        />
+        <label className="flex items-center gap-1.5 font-mono text-xs text-neutral-400">
+          <input type="checkbox" checked={onlyDiff} onChange={(e) => setOnlyDiff(e.target.checked)} />
+          solo diferencias
+        </label>
+        <span className="font-mono text-[11px] text-neutral-600 ml-auto">{filtered.length} filas</span>
+        <button onClick={onClose} className="font-mono text-xs text-neutral-500 hover:text-neutral-300">
+          cerrar
+        </button>
+      </div>
+
+      <div className="max-h-96 overflow-y-auto border border-neutral-800 rounded-lg">
+        <table className="w-full text-sm">
+          <thead className="bg-neutral-900 text-neutral-500 font-mono text-xs uppercase sticky top-0">
+            <tr>
+              <th className="text-left px-3 py-2">Personaje</th>
+              <th className="text-left px-3 py-2">Theme</th>
+              <th className="text-left px-3 py-2">Season</th>
+              <th className="text-left px-3 py-2">Tu base</th>
+              <th className="text-left px-3 py-2">fortnite.gg</th>
+              <th className="text-left px-3 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((r) => (
+              <tr key={`${r.character}|${r.theme}|${r.season}`} className="border-t border-neutral-800">
+                <td className="px-3 py-2 text-neutral-200">{r.character}</td>
+                <td className="px-3 py-2 text-neutral-400">{r.theme}</td>
+                <td className="px-3 py-2 text-neutral-400">{r.season}</td>
+                <td className={`px-3 py-2 font-mono text-xs ${statusColor(r.ourStatus)}`}>{r.ourStatus}</td>
+                <td className={`px-3 py-2 font-mono text-xs ${statusColor(r.ggStatus)}`}>{r.ggStatus}</td>
+                <td className="px-3 py-2">
+                  {r.ourStatus !== r.ggStatus && r.id && r.ggStatus !== "no existe" && (
+                    <button
+                      onClick={() => matchGg(r)}
+                      disabled={busyId === r.id}
+                      className="font-mono text-[11px] text-neutral-400 hover:text-neutral-200 border border-neutral-700 rounded px-2 py-0.5"
+                    >
+                      {busyId === r.id ? "…" : "igualar a gg"}
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
