@@ -59,14 +59,17 @@ public static class SpriteDefinitionReader
                     variantTag ??= (string?)d["VariantRarityTag"]?["TagName"];
                 }
 
+                var esdName = Path.GetFileNameWithoutExtension(path);
                 parsed.Add(new EsdRecord
                 {
                     AssetPath = path,
                     Plugin = PluginOf(path),
-                    EsdName = Path.GetFileNameWithoutExtension(path),
+                    EsdName = esdName,
                     ItemName = (string?)props["ItemName"]?["SourceString"],
                     Rarity = StripEnum(rarity),
-                    VariantToken = VariantTokenFrom(variantTag, Path.GetFileNameWithoutExtension(path)),
+                    VariantToken = VariantTokenOverrides.TryGetValue(esdName, out var forced)
+                        ? forced
+                        : VariantTokenFrom(variantTag, esdName),
                     IconPath = iconPath ?? largeIconPath,
                     DexNumber = (int?)props["DexNumber"],
                 });
@@ -235,6 +238,18 @@ public static class SpriteDefinitionReader
     /// de esta lista en cuanto aparezcan en fortnite.gg (el sync de /admin los va a detectar
     /// como "missing" cuando eso pase).
     /// </summary>
+    /// <summary>
+    /// El juego a veces trae el VariantRarityTag interno mal cargado (no coincide con el nombre
+    /// del archivo). Cuando eso genera una colisión de id con otra variante real, se fuerza el
+    /// token correcto acá en vez de confiar en el tag. ESD_SquibblySprite_Variant_Gold.uasset
+    /// (parche 42.30) trae el tag "CheatMaster" en vez de "Gold", chocando con
+    /// ESD_SquibblySprite_Variant_CheatMaster.uasset (el Cheat Master real).
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, string> VariantTokenOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["ESD_SquibblySprite_Variant_Gold"] = "Gold",
+    };
+
     private static bool IsPreStagedUnconfirmed(string character, string theme) =>
         (character.Equals("Cheat Master Dumpster Dive", StringComparison.OrdinalIgnoreCase)) ||
         (character.Equals("Mega Man", StringComparison.OrdinalIgnoreCase) && theme != SpriteThemes.Basic) ||
