@@ -254,7 +254,8 @@ public static class SpriteDefinitionReader
         (character.Equals("Cheat Master Dumpster Dive", StringComparison.OrdinalIgnoreCase)) ||
         (character.Equals("Mega Man", StringComparison.OrdinalIgnoreCase) && theme != SpriteThemes.Basic) ||
         (character.Equals("Jackrabbit", StringComparison.OrdinalIgnoreCase) &&
-         theme is SpriteThemes.Candy or SpriteThemes.Holofoil or "TrickTreat");
+         theme is SpriteThemes.Candy or SpriteThemes.Holofoil) ||
+        character.Equals("Squibbly", StringComparison.OrdinalIgnoreCase);
 
     private sealed record ManualEntry(
         string Character, string Theme, string Rarity, string Season, string IconPath, bool Unreleased, string Notes);

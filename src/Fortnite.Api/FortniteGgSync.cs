@@ -44,6 +44,8 @@ public static partial class FortniteGgSync
         ["quack"] = SpriteThemes.Quack,
         ["hacker"] = "Hacker",
         ["cheatmaster"] = SpriteThemes.Cheat,
+        ["reaper"] = "Reaper",
+        ["tricktreat"] = "TrickTreat",
     };
 
     /// <summary>
@@ -97,11 +99,22 @@ public static partial class FortniteGgSync
                 continue;
             }
 
-            if (!ThemeByVariant.TryGetValue(variant.Groups["v"].Value, out var theme) ||
-                !SeasonBySiteId.TryGetValue(season.Groups["v"].Value, out var seasonName))
+            // Variante o temporada que todavía no conocemos: no se descarta en silencio, pasa con
+            // su nombre crudo para que aparezca en la comparación y se pueda agregar al mapeo.
+            var variantRaw = variant.Groups["v"].Value;
+            if (variantRaw.Length == 0)
             {
                 continue;
             }
+
+            var theme = ThemeByVariant.TryGetValue(variantRaw, out var knownTheme)
+                ? knownTheme
+                : char.ToUpperInvariant(variantRaw[0]) + variantRaw[1..];
+
+            var seasonRaw = season.Groups["v"].Value;
+            var seasonName = SeasonBySiteId.TryGetValue(seasonRaw, out var knownSeason)
+                ? knownSeason
+                : $"gg-season-{seasonRaw}";
 
             // gg marca explícitamente algunas cards como todavía no liberadas (personajes recién
             // agregados, previsualizados pero sin confirmar).
