@@ -30,6 +30,7 @@ public static partial class FortniteGgSync
     {
         ["41"] = "Runners",
         ["42"] = "Override",
+        ["43"] = "C7 MS",
     };
 
     private static readonly IReadOnlyDictionary<string, string> ThemeByVariant = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -46,6 +47,8 @@ public static partial class FortniteGgSync
         ["cheatmaster"] = SpriteThemes.Cheat,
         ["reaper"] = "Reaper",
         ["tricktreat"] = "TrickTreat",
+        ["cursed"] = "Cursed",
+        ["jeweled"] = "Jeweled",
     };
 
     /// <summary>
@@ -121,7 +124,7 @@ public static partial class FortniteGgSync
             var unreleasedMatch = UnreleasedRegex().Match(attrs);
             var unreleased = unreleasedMatch.Success && unreleasedMatch.Groups["v"].Value == "1";
 
-            var character = parent.Groups["v"].Value;
+            var character = System.Net.WebUtility.HtmlDecode(parent.Groups["v"].Value);
             if (CharacterAliasFromGg.TryGetValue(character, out var alias))
             {
                 character = alias;

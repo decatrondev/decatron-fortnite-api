@@ -26,6 +26,7 @@ public sealed record IngestOptions
     {
         ["SpriteLibrary_CH7S3"] = "Runners",
         ["SpriteLibrary_Ch7S4"] = "Override",
+        ["SpriteLibrary_Ch7MS"] = "C7 MS",
     };
 
     /// <summary>Número de parche que identifica esta corrida. Ej: "34.20".</summary>
@@ -51,6 +52,7 @@ public sealed record IngestOptions
     [
         "FortniteGame/Plugins/GameFeatures/SpriteLibrary_CH7S3/Content/UI",
         "FortniteGame/Plugins/GameFeatures/SpriteLibrary_Ch7S4/Content/UI",
+        "FortniteGame/Plugins/GameFeatures/SpriteLibrary_Ch7MS/Content/UI",
         "FortniteGame/Plugins/GameFeatures/BRCosmetics/Content/UI/Foundation/Textures/Icons/Sprites",
         "FortniteGame/Plugins/GameFeatures/MorningBellItems_OrangeRemote/Content/Assets/Icons",
     ];

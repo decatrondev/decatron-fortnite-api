@@ -100,6 +100,16 @@ var jsonOpts = new System.Text.Json.JsonSerializerOptions
 };
 var result = SpriteDefinitionReader.Run(provider, options, layout, Log);
 
+// Si el .usmap no corresponde al build instalado, los assets se leen sin ItemName/Rarity/Icon y
+// el catálogo sale con basura. Se corta ANTES de escribir en data/ o en la base.
+var withoutIcon = result.Raw.Count(r => r.TextureFile is null);
+if (result.Raw.Count > 0 && withoutIcon * 5 > result.Raw.Count)
+{
+    Log($"ABORTADO: {withoutIcon} de {result.Raw.Count} sprites salieron sin ícono. El .usmap no coincide con el build " +
+        "instalado. Regeneralo en FModel y actualizá Ingest:MappingsFile. No se escribió nada en data/ ni en la base.");
+    return 4;
+}
+
 foreach (var raw in result.Raw)
 {
     var id = Path.GetFileNameWithoutExtension(raw.TextureFile ?? Fortnite.Core.Models.SpriteId.From(raw.Character ?? "x", raw.Theme ?? "x"));
